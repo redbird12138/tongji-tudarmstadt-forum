@@ -21,20 +21,29 @@ if 'authenticated' not in st.session_state:
 if 'current_view' not in st.session_state:
     st.session_state.current_view = 'overview'
 
+# 数据文件路径
+DATA_FILE = os.path.join(os.getcwd(), 'submissions.json')
+
 # 加载数据
 def load_data():
-    if os.path.exists('submissions.json'):
-        try:
-            with open('submissions.json', 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
+    try:
+        if os.path.exists(DATA_FILE):
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data
+        else:
             return []
-    return []
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return []
 
 # 保存数据
 def save_data(submissions):
-    with open('submissions.json', 'w', encoding='utf-8') as f:
-        json.dump(submissions, f, ensure_ascii=False, indent=2)
+    try:
+        with open(DATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump(submissions, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        st.error(f"Error saving data: {e}")
 
 # 验证管理员身份
 def authenticate():
