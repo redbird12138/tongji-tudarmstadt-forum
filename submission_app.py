@@ -21,17 +21,19 @@ LANGUAGES = {
         "title": "International Forum of Graduate Students on Mechanics of Smart Materials",
         "subtitle": "Shanghai, China | October 13-15, 2025",
         "paper_title": "Paper Title",
-        "authors_affiliations": "Authors & Affiliations",
-        "authors_help": "Please provide all authors' names and their affiliations",
-        "presenting_author": "Presenting Author",
-        "presenting_author_help": "The person who will give the presentation at the conference",
-        "corresponding_author": "Corresponding Author",
-        "corresponding_author_help": "The main contact person for this submission",
+        "author_name": "Author Name",
+        "author_affiliation": "Affiliation",
+        "add_author": "Add Another Author",
+        "remove_author": "Remove",
+        "is_presenting": "Presenting Author",
+        "is_corresponding": "Corresponding Author",
+        "authors_help": "Add all authors with their affiliations and roles",
         "session": "Session",
         "abstract": "Abstract",
         "abstract_help": "Please provide a detailed abstract of your research",
         "accommodation": "Accommodation Dates",
-        "accommodation_help": "Select which nights you need accommodation during Oct 12-16, 2025",
+        "accommodation_help": "Select specific nights you need accommodation during the conference period",
+        "custom_dates": "Other dates (please specify):",
         "contact_email": "Contact Email",
         "contact_phone": "Contact Phone (Optional)",
         "submit": "Submit Submission",
@@ -57,10 +59,11 @@ LANGUAGES = {
             "Machine Learning in Computational Mechanics & Materials Science (AI-driven Design, Data-driven Methods)"
         ],
         "dates": [
-            "Oct 12 (4 nights: 12-16)",
-            "Oct 13 (3 nights: 13-16)", 
-            "Oct 14 (2 nights: 14-16)",
-            "Oct 15 (1 night: 15-16)"
+            "October 12, 2025 (Friday)",
+            "October 13, 2025 (Saturday)", 
+            "October 14, 2025 (Sunday)",
+            "October 15, 2025 (Monday)",
+            "October 16, 2025 (Tuesday)"
         ],
         "welcome_text": """
         **Welcome to the International Forum of Graduate Students on Mechanics of Smart Materials!**
@@ -94,17 +97,19 @@ LANGUAGES = {
         "title": "智能材料力学研究生国际论坛",
         "subtitle": "中国上海 | 2025年10月13-15日",
         "paper_title": "论文标题",
-        "authors_affiliations": "作者姓名及单位",
-        "authors_help": "请提供所有作者姓名及其所在单位",
-        "presenting_author": "报告人",
-        "presenting_author_help": "在会议上进行报告的人员",
-        "corresponding_author": "通讯作者",
-        "corresponding_author_help": "本次投稿的主要联系人",
+        "author_name": "作者姓名",
+        "author_affiliation": "所属单位",
+        "add_author": "添加作者",
+        "remove_author": "删除",
+        "is_presenting": "报告人",
+        "is_corresponding": "通讯作者",
+        "authors_help": "添加所有作者的姓名、单位和角色信息",
         "session": "分会场主题",
         "abstract": "摘要",
         "abstract_help": "请提供详细的研究摘要",
         "accommodation": "住宿日期",
-        "accommodation_help": "请选择2025年10月12-16日期间需要住宿的日期",
+        "accommodation_help": "选择会议期间需要住宿的具体日期",
+        "custom_dates": "其他日期（请注明）：",
         "contact_email": "联系邮箱",
         "contact_phone": "联系电话（可选）",
         "submit": "提交投稿",
@@ -130,10 +135,11 @@ LANGUAGES = {
             "机器学习在计算力学与材料科学中的应用（AI驱动设计、数据驱动方法）"
         ],
         "dates": [
-            "10月12日（4晚：12-16日）",
-            "10月13日（3晚：13-16日）",
-            "10月14日（2晚：14-16日）",
-            "10月15日（1晚：15-16日）"
+            "2025年10月12日（周五）",
+            "2025年10月13日（周六）",
+            "2025年10月14日（周日）",
+            "2025年10月15日（周一）",
+            "2025年10月16日（周二）"
         ],
         "welcome_text": """
         **欢迎参加智能材料力学研究生国际论坛！**
@@ -172,6 +178,8 @@ if 'current_view' not in st.session_state:
     st.session_state.current_view = 'submit'
 if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
+if 'authors' not in st.session_state:
+    st.session_state.authors = [{'name': '', 'affiliation': '', 'is_presenting': False, 'is_corresponding': False}]
 
 # 数据文件路径
 DATA_FILE = os.path.join(os.getcwd(), 'submissions.json')
@@ -335,9 +343,15 @@ def admin_dashboard():
                     
                     with col1:
                         st.write("**Title:**", submission['paper_title'])
-                        st.write("**Authors:**", submission['authors_affiliations'])
-                        st.write("**Presenting Author:**", submission['presenting_author'])
-                        st.write("**Corresponding Author:**", submission['corresponding_author'])
+                        st.write("**Authors:**", submission.get('authors_display', submission.get('authors_affiliations', 'N/A')))
+                        if 'presenting_authors' in submission:
+                            st.write("**Presenting Authors:**", "; ".join(submission['presenting_authors']))
+                        elif 'presenting_author' in submission:
+                            st.write("**Presenting Author:**", submission['presenting_author'])
+                        if 'corresponding_authors' in submission:
+                            st.write("**Corresponding Authors:**", "; ".join(submission['corresponding_authors']))
+                        elif 'corresponding_author' in submission:
+                            st.write("**Corresponding Author:**", submission['corresponding_author'])
                         st.write("**Session:**", submission['session'])
                         st.write("**Abstract:**")
                         st.text_area("", submission['abstract'], height=100, disabled=True, key=f"abstract_{i}")
@@ -534,9 +548,15 @@ else:
                             
                             with col1:
                                 st.write("**Title:**", submission['paper_title'])
-                                st.write("**Authors:**", submission['authors_affiliations'])
-                                st.write("**Presenting Author:**", submission['presenting_author'])
-                                st.write("**Corresponding Author:**", submission['corresponding_author'])
+                                st.write("**Authors:**", submission.get('authors_display', submission.get('authors_affiliations', 'N/A')))
+                                if 'presenting_authors' in submission:
+                                    st.write("**Presenting Authors:**", "; ".join(submission['presenting_authors']))
+                                elif 'presenting_author' in submission:
+                                    st.write("**Presenting Author:**", submission['presenting_author'])
+                                if 'corresponding_authors' in submission:
+                                    st.write("**Corresponding Authors:**", "; ".join(submission['corresponding_authors']))
+                                elif 'corresponding_author' in submission:
+                                    st.write("**Corresponding Author:**", submission['corresponding_author'])
                                 st.write("**Session:**", submission['session'])
                                 st.write("**Contact:**", submission['contact_email'])
                                 if submission.get('contact_phone'):
@@ -572,24 +592,63 @@ else:
                     placeholder="Enter your paper title here..."
                 )
                 
-                authors_affiliations = st.text_area(
-                    f"{t('authors_affiliations')} *",
-                    height=100,
-                    help=t('authors_help'),
-                    placeholder="Example:\nJohn Smith¹, Jane Doe², Michael Chen¹\n¹Tongji University, Shanghai, China\n²TU Darmstadt, Germany"
-                )
+                # Dynamic Authors Section
+                st.write(f"**{t('authors_help')} *:**")
                 
-                presenting_author = st.text_input(
-                    f"{t('presenting_author')} *",
-                    help=t('presenting_author_help'),
-                    placeholder="John Smith (Tongji University)"
-                )
+                # Display existing authors
+                for i, author in enumerate(st.session_state.authors):
+                    with st.container():
+                        st.write(f"**Author {i+1}:**")
+                        col_name, col_affiliation = st.columns(2)
+                        
+                        with col_name:
+                            author['name'] = st.text_input(
+                                t('author_name'),
+                                value=author['name'],
+                                key=f"author_name_{i}",
+                                placeholder="John Smith"
+                            )
+                        
+                        with col_affiliation:
+                            author['affiliation'] = st.text_input(
+                                t('author_affiliation'),
+                                value=author['affiliation'],
+                                key=f"author_affiliation_{i}",
+                                placeholder="Tongji University"
+                            )
+                        
+                        col_present, col_corresp, col_remove = st.columns([1, 1, 1])
+                        with col_present:
+                            author['is_presenting'] = st.checkbox(
+                                t('is_presenting'),
+                                value=author['is_presenting'],
+                                key=f"is_presenting_{i}"
+                            )
+                        
+                        with col_corresp:
+                            author['is_corresponding'] = st.checkbox(
+                                t('is_corresponding'),
+                                value=author['is_corresponding'],
+                                key=f"is_corresponding_{i}"
+                            )
+                        
+                        with col_remove:
+                            if len(st.session_state.authors) > 1:
+                                if st.button(t('remove_author'), key=f"remove_{i}"):
+                                    st.session_state.authors.pop(i)
+                                    st.rerun()
+                        
+                        st.markdown("---")
                 
-                corresponding_author = st.text_input(
-                    f"{t('corresponding_author')} *", 
-                    help=t('corresponding_author_help'),
-                    placeholder="Jane Doe (jane.doe@tu-darmstadt.de)"
-                )
+                # Add new author button
+                if st.button(t('add_author')):
+                    st.session_state.authors.append({
+                        'name': '', 
+                        'affiliation': '', 
+                        'is_presenting': False, 
+                        'is_corresponding': False
+                    })
+                    st.rerun()
                 
                 session = st.selectbox(
                     f"{t('session')} *",
@@ -613,6 +672,12 @@ else:
                     options=t('dates'),
                     help=t('accommodation_help')
                 )
+                
+                # Custom dates option
+                custom_dates = st.text_input(
+                    t('custom_dates'),
+                    placeholder="e.g., October 11, October 17, etc."
+                )
             
             abstract = st.text_area(
                 f"{t('abstract')} *",
@@ -630,30 +695,76 @@ else:
                 reset = st.form_submit_button(t('reset'), use_container_width=True)
             
             if submitted:
+                # Validate authors
+                valid_authors = [a for a in st.session_state.authors if a['name'].strip() and a['affiliation'].strip()]
+                presenting_authors = [a for a in valid_authors if a['is_presenting']]
+                corresponding_authors = [a for a in valid_authors if a['is_corresponding']]
+                
+                # Format authors for display
+                authors_text = []
+                for i, author in enumerate(valid_authors):
+                    roles = []
+                    if author['is_presenting']:
+                        roles.append("Presenting")
+                    if author['is_corresponding']:
+                        roles.append("Corresponding")
+                    
+                    role_text = f" ({', '.join(roles)})" if roles else ""
+                    authors_text.append(f"{author['name']} - {author['affiliation']}{role_text}")
+                
+                authors_display = "; ".join(authors_text)
+                
+                # Combine accommodation dates
+                all_accommodation = []
+                if accommodation_dates:
+                    all_accommodation.extend(accommodation_dates)
+                if custom_dates.strip():
+                    all_accommodation.append(f"Custom: {custom_dates.strip()}")
+                
+                accommodation_display = "; ".join(all_accommodation) if all_accommodation else "Not needed"
+                
                 required_data = {
                     'paper_title': paper_title,
-                    'authors_affiliations': authors_affiliations,
-                    'presenting_author': presenting_author,
-                    'corresponding_author': corresponding_author,
+                    'authors': valid_authors,
+                    'presenting_authors': presenting_authors,
+                    'corresponding_authors': corresponding_authors,
                     'session': session,
                     'abstract': abstract,
                     'contact_email': contact_email
                 }
                 
-                if all(required_data.values()):
+                # Validation
+                missing_fields = []
+                if not paper_title.strip():
+                    missing_fields.append("Paper Title")
+                if not valid_authors:
+                    missing_fields.append("At least one author with name and affiliation")
+                if not presenting_authors:
+                    missing_fields.append("At least one presenting author")
+                if not corresponding_authors:
+                    missing_fields.append("At least one corresponding author")
+                if not session:
+                    missing_fields.append("Session")
+                if not abstract.strip():
+                    missing_fields.append("Abstract")
+                if not contact_email.strip():
+                    missing_fields.append("Contact Email")
+                
+                if not missing_fields:
                     submission_id = generate_submission_id(contact_email, paper_title)
                     
                     submission = {
                         'submission_id': submission_id,
                         'paper_title': paper_title,
-                        'authors_affiliations': authors_affiliations,
-                        'presenting_author': presenting_author,
-                        'corresponding_author': corresponding_author,
+                        'authors': valid_authors,
+                        'authors_display': authors_display,
+                        'presenting_authors': [f"{a['name']} ({a['affiliation']})" for a in presenting_authors],
+                        'corresponding_authors': [f"{a['name']} ({a['affiliation']})" for a in corresponding_authors],
                         'session': session,
                         'abstract': abstract,
                         'contact_email': contact_email,
                         'contact_phone': contact_phone,
-                        'accommodation_dates': ', '.join(accommodation_dates) if accommodation_dates else 'Not needed',
+                        'accommodation_dates': accommodation_display,
                         'submission_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'language': st.session_state.language
                     }
@@ -662,27 +773,32 @@ else:
                     submissions.append(submission)
                     save_data(submissions)
                     
+                    # Reset authors for next submission
+                    st.session_state.authors = [{'name': '', 'affiliation': '', 'is_presenting': False, 'is_corresponding': False}]
+                    
                     st.success(t('success'))
                     st.balloons()
                     
                     with st.expander("📋 Submission Summary"):
                         st.write("**Submission ID:**", submission_id)
                         st.write("**Title:**", paper_title)
-                        st.write("**Authors:**", authors_affiliations)
-                        st.write("**Presenting Author:**", presenting_author)
-                        st.write("**Corresponding Author:**", corresponding_author)
+                        st.write("**Authors:**", authors_display)
+                        st.write("**Presenting Authors:**", "; ".join(submission['presenting_authors']))
+                        st.write("**Corresponding Authors:**", "; ".join(submission['corresponding_authors']))
                         st.write("**Session:**", session)
                         st.write("**Contact:**", contact_email)
-                        if accommodation_dates:
-                            st.write("**Accommodation:**", ', '.join(accommodation_dates))
+                        if all_accommodation:
+                            st.write("**Accommodation:**", accommodation_display)
                         st.write("**Submission Time:**", submission['submission_time'])
                         
                         st.info("💡 **Tip:** Save your Submission ID for future reference!")
                     
                 else:
                     st.error(t('error'))
-                    missing_fields = [field for field, value in required_data.items() if not value]
-                    st.write("Missing fields:", missing_fields)
+                    st.write("Missing required fields:")
+                    for field in missing_fields:
+                        st.write(f"- {field}")
+
 
 # 页脚
 st.markdown("---")
