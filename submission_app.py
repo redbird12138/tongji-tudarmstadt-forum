@@ -353,6 +353,23 @@ def admin_dashboard():
                         st.write("⏰", submission['submission_time'])
                         st.write("🌐", submission['language'])
                         st.write("🏨", submission['accommodation_dates'])
+                        
+                        # 删除按钮
+                        st.markdown("---")
+                        if st.button(f"🗑️ Delete Submission", key=f"delete_{i}", type="secondary"):
+                            # 确认删除
+                            if st.session_state.get(f"confirm_delete_{i}", False):
+                                # 执行删除
+                                all_submissions = load_data()
+                                updated_submissions = [s for s in all_submissions if s.get('submission_id') != submission.get('submission_id')]
+                                save_data(updated_submissions)
+                                st.success("Submission deleted successfully!")
+                                st.rerun()
+                            else:
+                                # 第一次点击，要求确认
+                                st.session_state[f"confirm_delete_{i}"] = True
+                                st.warning("Click again to confirm deletion. This action cannot be undone!")
+                                st.rerun()
         else:
             st.info("No submissions available.")
     
