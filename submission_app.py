@@ -583,7 +583,65 @@ else:
     if st.session_state.current_view == 'submit':
         st.header("📝 Submission Form / 投稿表单")
 
-        with st.form("submission_form", clear_on_submit=True):
+        # Authors management (outside form)
+        st.subheader(f"**{t('authors_help')} *:**")
+        
+        # Display existing authors
+        for i, author in enumerate(st.session_state.authors):
+            with st.container():
+                st.write(f"**Author {i+1}:**")
+                col_name, col_affiliation = st.columns(2)
+                
+                with col_name:
+                    author['name'] = st.text_input(
+                        t('author_name'),
+                        value=author['name'],
+                        key=f"author_name_{i}",
+                        placeholder="John Smith"
+                    )
+                
+                with col_affiliation:
+                    author['affiliation'] = st.text_input(
+                        t('author_affiliation'),
+                        value=author['affiliation'],
+                        key=f"author_affiliation_{i}",
+                        placeholder="Tongji University"
+                    )
+                
+                col_present, col_corresp, col_remove = st.columns([1, 1, 1])
+                with col_present:
+                    author['is_presenting'] = st.checkbox(
+                        t('is_presenting'),
+                        value=author['is_presenting'],
+                        key=f"is_presenting_{i}"
+                    )
+                
+                with col_corresp:
+                    author['is_corresponding'] = st.checkbox(
+                        t('is_corresponding'),
+                        value=author['is_corresponding'],
+                        key=f"is_corresponding_{i}"
+                    )
+                
+                with col_remove:
+                    if len(st.session_state.authors) > 1:
+                        if st.button(t('remove_author'), key=f"remove_{i}"):
+                            st.session_state.authors.pop(i)
+                            st.rerun()
+                
+                st.markdown("---")
+        
+        # Add new author button (outside form)
+        if st.button(t('add_author')):
+            st.session_state.authors.append({
+                'name': '', 
+                'affiliation': '', 
+                'is_presenting': False, 
+                'is_corresponding': False
+            })
+            st.rerun()
+
+        with st.form("submission_form", clear_on_submit=False):
             col1, col2 = st.columns([2, 1])
             
             with col1:
@@ -591,64 +649,6 @@ else:
                     f"{t('paper_title')} *",
                     placeholder="Enter your paper title here..."
                 )
-                
-                # Dynamic Authors Section
-                st.write(f"**{t('authors_help')} *:**")
-                
-                # Display existing authors
-                for i, author in enumerate(st.session_state.authors):
-                    with st.container():
-                        st.write(f"**Author {i+1}:**")
-                        col_name, col_affiliation = st.columns(2)
-                        
-                        with col_name:
-                            author['name'] = st.text_input(
-                                t('author_name'),
-                                value=author['name'],
-                                key=f"author_name_{i}",
-                                placeholder="John Smith"
-                            )
-                        
-                        with col_affiliation:
-                            author['affiliation'] = st.text_input(
-                                t('author_affiliation'),
-                                value=author['affiliation'],
-                                key=f"author_affiliation_{i}",
-                                placeholder="Tongji University"
-                            )
-                        
-                        col_present, col_corresp, col_remove = st.columns([1, 1, 1])
-                        with col_present:
-                            author['is_presenting'] = st.checkbox(
-                                t('is_presenting'),
-                                value=author['is_presenting'],
-                                key=f"is_presenting_{i}"
-                            )
-                        
-                        with col_corresp:
-                            author['is_corresponding'] = st.checkbox(
-                                t('is_corresponding'),
-                                value=author['is_corresponding'],
-                                key=f"is_corresponding_{i}"
-                            )
-                        
-                        with col_remove:
-                            if len(st.session_state.authors) > 1:
-                                if st.button(t('remove_author'), key=f"remove_{i}"):
-                                    st.session_state.authors.pop(i)
-                                    st.rerun()
-                        
-                        st.markdown("---")
-                
-                # Add new author button
-                if st.button(t('add_author')):
-                    st.session_state.authors.append({
-                        'name': '', 
-                        'affiliation': '', 
-                        'is_presenting': False, 
-                        'is_corresponding': False
-                    })
-                    st.rerun()
                 
                 session = st.selectbox(
                     f"{t('session')} *",
