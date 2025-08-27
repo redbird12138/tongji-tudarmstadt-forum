@@ -184,6 +184,65 @@ if 'authors' not in st.session_state:
 # 数据文件路径
 DATA_FILE = os.path.join(os.getcwd(), 'submissions.json')
 
+# 安全获取字段值的辅助函数
+def safe_get(submission, *keys):
+    """安全获取提交数据中的字段值，支持多个备用键"""
+    for key in keys:
+        if key in submission and submission[key]:
+            return submission[key]
+    return "N/A"
+
+# 格式化作者信息的辅助函数
+def format_authors_display(submission):
+    """格式化作者信息显示"""
+    # 优先使用新格式的作者数据
+    if 'authors_display' in submission:
+        return submission['authors_display']
+    
+    # 如果有authors数组，格式化显示
+    if 'authors' in submission and isinstance(submission['authors'], list):
+        authors_text = []
+        for author in submission['authors']:
+            if isinstance(author, dict) and 'name' in author and 'affiliation' in author:
+                roles = []
+                if author.get('is_presenting'):
+                    roles.append("Presenting")
+                if author.get('is_corresponding'):
+                    roles.append("Corresponding")
+                
+                role_text = f" ({', '.join(roles)})" if roles else ""
+                authors_text.append(f"{author['name']} - {author['affiliation']}{role_text}")
+        
+        if authors_text:
+            return "; ".join(authors_text)
+    
+    # 最后尝试使用旧格式
+    return safe_get(submission, 'authors_affiliations', 'presenting_author')
+
+# 获取报告作者信息
+def get_presenting_authors(submission):
+    """获取报告作者信息"""
+    if 'presenting_authors' in submission and isinstance(submission['presenting_authors'], list):
+        return "; ".join(submission['presenting_authors'])
+    elif 'presenting_author' in submission:
+        return submission['presenting_author']
+    elif 'authors' in submission and isinstance(submission['authors'], list):
+        presenting = [f"{a['name']} ({a['affiliation']})" for a in submission['authors'] if a.get('is_presenting')]
+        return "; ".join(presenting) if presenting else "N/A"
+    return "N/A"
+
+# 获取通讯作者信息
+def get_corresponding_authors(submission):
+    """获取通讯作者信息"""
+    if 'corresponding_authors' in submission and isinstance(submission['corresponding_authors'], list):
+        return "; ".join(submission['corresponding_authors'])
+    elif 'corresponding_author' in submission:
+        return submission['corresponding_author']
+    elif 'authors' in submission and isinstance(submission['authors'], list):
+        corresponding = [f"{a['name']} ({a['affiliation']})" for a in submission['authors'] if a.get('is_corresponding')]
+        return "; ".join(corresponding) if corresponding else "N/A"
+    return "N/A"
+
 # 加载已保存的数据
 def load_data():
     try:
@@ -233,237 +292,277 @@ def admin_login():
 
 # 管理员界面
 def admin_dashboard():
-    submissions = load_data()
-    
-    st.header("🛠️ Admin Dashboard")
-    st.markdown("**Conference Management System**")
-    
-    # 顶部导航
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        if st.button("📊 Overview", use_container_width=True):
-            st.session_state.current_view = 'admin_overview'
-            st.rerun()
-    
-    with col2:
-        if st.button("📋 All Submissions", use_container_width=True):
-            st.session_state.current_view = 'admin_submissions'
-            st.rerun()
-    
-    with col3:
-        if st.button("📈 Analytics", use_container_width=True):
-            st.session_state.current_view = 'admin_analytics'
-            st.rerun()
-    
-    with col4:
-        if st.button("⚙️ Export Data", use_container_width=True):
-            st.session_state.current_view = 'admin_export'
-            st.rerun()
-    
-    with col5:
-        if st.button(t("logout"), use_container_width=True):
-            st.session_state.is_admin = False
-            st.session_state.current_view = 'submit'
-            st.rerun()
-    
-    st.markdown("---")
-    
-    # 管理员概览
-    if st.session_state.current_view == 'admin_overview':
-        st.subheader("📊 Conference Overview")
+    try:
+        submissions = load_data()
         
-        if submissions:
-            col1, col2, col3, col4 = st.columns(4)
+        st.header("🛠️ Admin Dashboard")
+        st.markdown("**Conference Management System**")
+        
+        # 顶部导航
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
+        with col1:
+            if st.button("📊 Overview", use_container_width=True):
+                st.session_state.current_view = 'admin_overview'
+                st.rerun()
+        
+        with col2:
+            if st.button("📋 All Submissions", use_container_width=True):
+                st.session_state.current_view = 'admin_submissions'
+                st.rerun()
+        
+        with col3:
+            if st.button("📈 Analytics", use_container_width=True):
+                st.session_state.current_view = 'admin_analytics'
+                st.rerun()
+        
+        with col4:
+            if st.button("⚙️ Export Data", use_container_width=True):
+                st.session_state.current_view = 'admin_export'
+                st.rerun()
+        
+        with col5:
+            if st.button(t("logout"), use_container_width=True):
+                st.session_state.is_admin = False
+                st.session_state.current_view = 'submit'
+                st.rerun()
+        
+        st.markdown("---")
+        
+        # 管理员概览
+        if st.session_state.current_view == 'admin_overview':
+            st.subheader("📊 Conference Overview")
             
-            with col1:
-                st.metric("📝 Total Submissions", len(submissions))
+            if submissions:
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("📝 Total Submissions", len(submissions))
+                
+                with col2:
+                    unique_emails = len(set(s.get('contact_email', 'unknown') for s in submissions))
+                    st.metric("👥 Unique Submitters", unique_emails)
+                
+                with col3:
+                    accommodation_needed = len([s for s in submissions 
+                                             if safe_get(s, 'accommodation_dates') != 'Not needed' and safe_get(s, 'accommodation_dates') != 'N/A'])
+                    st.metric("🏨 Need Accommodation", accommodation_needed)
+                
+                with col4:
+                    sessions = len(set(safe_get(s, 'session') for s in submissions if safe_get(s, 'session') != 'N/A'))
+                    st.metric("📚 Active Sessions", sessions)
+                
+                # 最近提交
+                st.subheader("🕒 Recent Submissions")
+                recent_submissions = sorted(submissions, key=lambda x: x.get('submission_time', ''), reverse=True)[:5]
+                
+                for submission in recent_submissions:
+                    with st.expander(f"📄 {safe_get(submission, 'paper_title')} - {safe_get(submission, 'submission_time')}"):
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.write("**Authors:**", format_authors_display(submission))
+                            st.write("**Session:**", safe_get(submission, 'session'))
+                        with col2:
+                            st.write("**Contact:**", safe_get(submission, 'contact_email'))
+                            st.write("**Accommodation:**", safe_get(submission, 'accommodation_dates'))
+            else:
+                st.info("No submissions yet.")
+        
+        # 所有投稿管理
+        elif st.session_state.current_view == 'admin_submissions':
+            st.subheader("📋 All Submissions Management")
             
-            with col2:
-                unique_emails = len(set(s['contact_email'] for s in submissions))
-                st.metric("👥 Unique Submitters", unique_emails)
+            if submissions:
+                # 搜索和过滤
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    search_term = st.text_input("🔍 Search", placeholder="Search by title, author, or email")
+                
+                with col2:
+                    unique_sessions = list(set(safe_get(s, 'session') for s in submissions if safe_get(s, 'session') != 'N/A'))
+                    session_filter = st.selectbox("📚 Filter by Session", 
+                                                options=["All Sessions"] + unique_sessions)
+                
+                # 应用过滤器
+                filtered_submissions = submissions
+                
+                if search_term:
+                    search_lower = search_term.lower()
+                    filtered_submissions = [s for s in filtered_submissions 
+                                          if (search_lower in safe_get(s, 'paper_title').lower() or
+                                              search_lower in format_authors_display(s).lower() or
+                                              search_lower in safe_get(s, 'contact_email').lower())]
+                
+                if session_filter != "All Sessions":
+                    filtered_submissions = [s for s in filtered_submissions if safe_get(s, 'session') == session_filter]
+                
+                st.write(f"**Showing {len(filtered_submissions)} of {len(submissions)} submissions**")
+                
+                # 显示提交列表
+                for i, submission in enumerate(filtered_submissions):
+                    with st.expander(f"📄 [{safe_get(submission, 'submission_id')}] {safe_get(submission, 'paper_title')}"):
+                        col1, col2 = st.columns([2, 1])
+                        
+                        with col1:
+                            st.write("**Title:**", safe_get(submission, 'paper_title'))
+                            st.write("**Authors:**", format_authors_display(submission))
+                            st.write("**Presenting Authors:**", get_presenting_authors(submission))
+                            st.write("**Corresponding Authors:**", get_corresponding_authors(submission))
+                            st.write("**Session:**", safe_get(submission, 'session'))
+                            st.write("**Abstract:**")
+                            st.text_area("", safe_get(submission, 'abstract'), height=100, disabled=True, key=f"abstract_{i}")
+                        
+                        with col2:
+                            st.write("**Contact Info:**")
+                            st.write("📧", safe_get(submission, 'contact_email'))
+                            contact_phone = safe_get(submission, 'contact_phone')
+                            if contact_phone != 'N/A':
+                                st.write("📱", contact_phone)
+                            
+                            st.write("**Details:**")
+                            st.write("🆔", safe_get(submission, 'submission_id'))
+                            st.write("⏰", safe_get(submission, 'submission_time'))
+                            st.write("🌐", safe_get(submission, 'language'))
+                            st.write("🏨", safe_get(submission, 'accommodation_dates'))
+                            
+                            # 删除按钮
+                            st.markdown("---")
+                            delete_key = f"delete_{i}_{safe_get(submission, 'submission_id')}"
+                            confirm_key = f"confirm_delete_{i}_{safe_get(submission, 'submission_id')}"
+                            
+                            if st.button(f"🗑️ Delete", key=delete_key, type="secondary"):
+                                if st.session_state.get(confirm_key, False):
+                                    # 执行删除
+                                    all_submissions = load_data()
+                                    submission_id = safe_get(submission, 'submission_id')
+                                    updated_submissions = [s for s in all_submissions if safe_get(s, 'submission_id') != submission_id]
+                                    save_data(updated_submissions)
+                                    st.success("Submission deleted successfully!")
+                                    # 清除确认状态
+                                    if confirm_key in st.session_state:
+                                        del st.session_state[confirm_key]
+                                    st.rerun()
+                                else:
+                                    # 第一次点击，要求确认
+                                    st.session_state[confirm_key] = True
+                                    st.warning("Click again to confirm deletion. This action cannot be undone!")
+                                    st.rerun()
+            else:
+                st.info("No submissions available.")
+        
+        # 分析页面
+        elif st.session_state.current_view == 'admin_analytics':
+            st.subheader("📈 Conference Analytics")
             
-            with col3:
-                accommodation_needed = len([s for s in submissions if s.get('accommodation_dates', 'Not needed') != 'Not needed'])
-                st.metric("🏨 Need Accommodation", accommodation_needed)
+            if submissions:
+                # 按会话分布
+                st.write("**📊 Submissions by Session:**")
+                session_counts = {}
+                for submission in submissions:
+                    session = safe_get(submission, 'session')
+                    if session != 'N/A':
+                        session_counts[session] = session_counts.get(session, 0) + 1
+                
+                if session_counts:
+                    session_df = pd.DataFrame(list(session_counts.items()), columns=['Session', 'Count'])
+                    st.bar_chart(session_df.set_index('Session'))
+                else:
+                    st.info("No session data available for visualization.")
+                
+                # 住宿需求
+                st.write("**🏨 Accommodation Analysis:**")
+                accommodation_needed = len([s for s in submissions 
+                                         if safe_get(s, 'accommodation_dates') not in ['Not needed', 'N/A', '']])
+                accommodation_not_needed = len(submissions) - accommodation_needed
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Need Accommodation", accommodation_needed)
+                with col2:
+                    st.metric("No Accommodation Needed", accommodation_not_needed)
+                    
+            else:
+                st.info("No data available for analysis.")
+        
+        # 数据导出
+        elif st.session_state.current_view == 'admin_export':
+            st.subheader("📊 Export Data")
             
-            with col4:
-                sessions = len(set(s['session'] for s in submissions))
-                st.metric("📚 Active Sessions", sessions)
-            
-            # 最近提交
-            st.subheader("🕒 Recent Submissions")
-            recent_submissions = sorted(submissions, key=lambda x: x['submission_time'], reverse=True)[:5]
-            
-            for submission in recent_submissions:
-                with st.expander(f"📄 {submission['paper_title']} - {submission['submission_time']}"):
+            if submissions:
+                try:
+                    # 为导出准备数据
+                    export_data = []
+                    for s in submissions:
+                        export_record = {
+                            'Submission_ID': safe_get(s, 'submission_id'),
+                            'Paper_Title': safe_get(s, 'paper_title'),
+                            'Authors': format_authors_display(s),
+                            'Presenting_Authors': get_presenting_authors(s),
+                            'Corresponding_Authors': get_corresponding_authors(s),
+                            'Session': safe_get(s, 'session'),
+                            'Abstract': safe_get(s, 'abstract'),
+                            'Contact_Email': safe_get(s, 'contact_email'),
+                            'Contact_Phone': safe_get(s, 'contact_phone'),
+                            'Accommodation_Dates': safe_get(s, 'accommodation_dates'),
+                            'Submission_Time': safe_get(s, 'submission_time'),
+                            'Language': safe_get(s, 'language')
+                        }
+                        export_data.append(export_record)
+                    
+                    df = pd.DataFrame(export_data)
+                    csv_data = df.to_csv(index=False, encoding='utf-8')
+                    
                     col1, col2 = st.columns(2)
-                    with col1:
-                        st.write("**Authors:**", submission['authors_affiliations'])
-                        st.write("**Session:**", submission['session'])
-                    with col2:
-                        st.write("**Contact:**", submission['contact_email'])
-                        st.write("**Accommodation:**", submission['accommodation_dates'])
-        else:
-            st.info("No submissions yet.")
-    
-    # 所有投稿管理
-    elif st.session_state.current_view == 'admin_submissions':
-        st.subheader("📋 All Submissions Management")
-        
-        if submissions:
-            # 搜索和过滤
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                search_term = st.text_input("🔍 Search", placeholder="Search by title, author, or email")
-            
-            with col2:
-                session_filter = st.selectbox("📚 Filter by Session", 
-                                            options=["All Sessions"] + list(set(s['session'] for s in submissions)))
-            
-            # 应用过滤器
-            filtered_submissions = submissions
-            
-            if search_term:
-                filtered_submissions = [s for s in filtered_submissions 
-                                      if search_term.lower() in s['paper_title'].lower() 
-                                      or search_term.lower() in s['authors_affiliations'].lower()
-                                      or search_term.lower() in s['contact_email'].lower()]
-            
-            if session_filter != "All Sessions":
-                filtered_submissions = [s for s in filtered_submissions if s['session'] == session_filter]
-            
-            st.write(f"**Showing {len(filtered_submissions)} of {len(submissions)} submissions**")
-            
-            # 显示提交列表
-            for i, submission in enumerate(filtered_submissions):
-                with st.expander(f"📄 [{submission.get('submission_id', 'N/A')}] {submission['paper_title']}"):
-                    col1, col2 = st.columns([2, 1])
                     
                     with col1:
-                        st.write("**Title:**", submission['paper_title'])
-                        st.write("**Authors:**", submission.get('authors_display', submission.get('authors_affiliations', 'N/A')))
-                        if 'presenting_authors' in submission:
-                            st.write("**Presenting Authors:**", "; ".join(submission['presenting_authors']))
-                        elif 'presenting_author' in submission:
-                            st.write("**Presenting Author:**", submission['presenting_author'])
-                        if 'corresponding_authors' in submission:
-                            st.write("**Corresponding Authors:**", "; ".join(submission['corresponding_authors']))
-                        elif 'corresponding_author' in submission:
-                            st.write("**Corresponding Author:**", submission['corresponding_author'])
-                        st.write("**Session:**", submission['session'])
-                        st.write("**Abstract:**")
-                        st.text_area("", submission['abstract'], height=100, disabled=True, key=f"abstract_{i}")
+                        st.download_button(
+                            label="📊 Export All Data (CSV)",
+                            data=csv_data,
+                            file_name=f'all_submissions_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv',
+                            mime='text/csv',
+                            use_container_width=True
+                        )
                     
                     with col2:
-                        st.write("**Contact Info:**")
-                        st.write("📧", submission['contact_email'])
-                        if submission.get('contact_phone'):
-                            st.write("📱", submission['contact_phone'])
+                        # 简化版导出
+                        summary_data = []
+                        for s in submissions:
+                            summary_data.append({
+                                'Submission_ID': safe_get(s, 'submission_id'),
+                                'Title': safe_get(s, 'paper_title'),
+                                'Presenting_Author': get_presenting_authors(s),
+                                'Email': safe_get(s, 'contact_email'),
+                                'Session': safe_get(s, 'session'),
+                                'Accommodation': safe_get(s, 'accommodation_dates'),
+                                'Submission_Time': safe_get(s, 'submission_time')
+                            })
                         
-                        st.write("**Details:**")
-                        st.write("🆔", submission.get('submission_id', 'N/A'))
-                        st.write("⏰", submission['submission_time'])
-                        st.write("🌐", submission['language'])
-                        st.write("🏨", submission['accommodation_dates'])
-                        
-                        # 删除按钮
-                        st.markdown("---")
-                        if st.button(f"🗑️ Delete Submission", key=f"delete_{i}", type="secondary"):
-                            # 确认删除
-                            if st.session_state.get(f"confirm_delete_{i}", False):
-                                # 执行删除
-                                all_submissions = load_data()
-                                updated_submissions = [s for s in all_submissions if s.get('submission_id') != submission.get('submission_id')]
-                                save_data(updated_submissions)
-                                st.success("Submission deleted successfully!")
-                                st.rerun()
-                            else:
-                                # 第一次点击，要求确认
-                                st.session_state[f"confirm_delete_{i}"] = True
-                                st.warning("Click again to confirm deletion. This action cannot be undone!")
-                                st.rerun()
-        else:
-            st.info("No submissions available.")
-    
-    # 分析页面
-    elif st.session_state.current_view == 'admin_analytics':
-        st.subheader("📈 Conference Analytics")
-        
-        if submissions:
-            # 按会话分布
-            st.write("**📊 Submissions by Session:**")
-            session_counts = {}
-            for submission in submissions:
-                session = submission['session']
-                session_counts[session] = session_counts.get(session, 0) + 1
-            
-            session_df = pd.DataFrame(list(session_counts.items()), columns=['Session', 'Count'])
-            st.bar_chart(session_df.set_index('Session'))
-            
-            # 住宿需求
-            st.write("**🏨 Accommodation Analysis:**")
-            accommodation_needed = len([s for s in submissions 
-                                     if s.get('accommodation_dates', 'Not needed') != 'Not needed'])
-            accommodation_not_needed = len(submissions) - accommodation_needed
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("Need Accommodation", accommodation_needed)
-            with col2:
-                st.metric("No Accommodation Needed", accommodation_not_needed)
+                        summary_df = pd.DataFrame(summary_data)
+                        summary_csv = summary_df.to_csv(index=False, encoding='utf-8')
+                        st.download_button(
+                            label="📋 Export Summary (CSV)",
+                            data=summary_csv,
+                            file_name=f'submission_summary_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv',
+                            mime='text/csv',
+                            use_container_width=True
+                        )
+                    
+                    st.info(f"📈 Total Submissions Available: {len(submissions)}")
+                    
+                    # 显示数据预览
+                    st.subheader("📋 Data Preview")
+                    st.dataframe(df.head(10), use_container_width=True)
+                    
+                except Exception as e:
+                    st.error(f"Export error: {str(e)}")
+                    st.info("Please check the data format and try again.")
+            else:
+                st.info("No data to export.")
                 
-        else:
-            st.info("No data available for analysis.")
-    
-    # 数据导出
-    elif st.session_state.current_view == 'admin_export':
-        st.subheader("📊 Export Data")
-        
-        if submissions:
-            # 完整数据导出
-            df = pd.DataFrame(submissions)
-            csv_data = df.to_csv(index=False, encoding='utf-8')
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.download_button(
-                    label="📊 Export All Data (CSV)",
-                    data=csv_data,
-                    file_name=f'all_submissions_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv',
-                    mime='text/csv',
-                    use_container_width=True
-                )
-            
-            with col2:
-                # 简化版导出
-                summary_data = []
-                for s in submissions:
-                    summary_data.append({
-                        'Submission_ID': s.get('submission_id', 'N/A'),
-                        'Title': s['paper_title'],
-                        'Presenting_Author': s['presenting_author'],
-                        'Email': s['contact_email'],
-                        'Session': s['session'],
-                        'Accommodation': s['accommodation_dates'],
-                        'Submission_Time': s['submission_time']
-                    })
-                
-                summary_df = pd.DataFrame(summary_data)
-                summary_csv = summary_df.to_csv(index=False, encoding='utf-8')
-                st.download_button(
-                    label="📋 Export Summary (CSV)",
-                    data=summary_csv,
-                    file_name=f'submission_summary_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv',
-                    mime='text/csv',
-                    use_container_width=True
-                )
-            
-            st.info(f"📈 Total Submissions Available: {len(submissions)}")
-        else:
-            st.info("No data to export.")
+    except Exception as e:
+        st.error(f"Admin Dashboard Error: {str(e)}")
+        st.info("Please refresh the page or contact the administrator.")
 
 # 侧边栏
 with st.sidebar:
@@ -537,39 +636,34 @@ else:
         if st.button(t("search")):
             if search_email:
                 submissions = load_data()
-                user_submissions = [s for s in submissions if s['contact_email'].lower() == search_email.lower()]
+                user_submissions = [s for s in submissions if safe_get(s, 'contact_email').lower() == search_email.lower()]
                 
                 if user_submissions:
                     st.success(f"Found {len(user_submissions)} submission(s) for {search_email}")
                     
                     for submission in user_submissions:
-                        with st.expander(f"📄 {submission['paper_title']} (Submitted: {submission['submission_time']})"):
+                        with st.expander(f"📄 {safe_get(submission, 'paper_title')} (Submitted: {safe_get(submission, 'submission_time')})"):
                             col1, col2 = st.columns([2, 1])
                             
                             with col1:
-                                st.write("**Title:**", submission['paper_title'])
-                                st.write("**Authors:**", submission.get('authors_display', submission.get('authors_affiliations', 'N/A')))
-                                if 'presenting_authors' in submission:
-                                    st.write("**Presenting Authors:**", "; ".join(submission['presenting_authors']))
-                                elif 'presenting_author' in submission:
-                                    st.write("**Presenting Author:**", submission['presenting_author'])
-                                if 'corresponding_authors' in submission:
-                                    st.write("**Corresponding Authors:**", "; ".join(submission['corresponding_authors']))
-                                elif 'corresponding_author' in submission:
-                                    st.write("**Corresponding Author:**", submission['corresponding_author'])
-                                st.write("**Session:**", submission['session'])
-                                st.write("**Contact:**", submission['contact_email'])
-                                if submission.get('contact_phone'):
-                                    st.write("**Phone:**", submission['contact_phone'])
-                                st.write("**Accommodation:**", submission['accommodation_dates'])
+                                st.write("**Title:**", safe_get(submission, 'paper_title'))
+                                st.write("**Authors:**", format_authors_display(submission))
+                                st.write("**Presenting Authors:**", get_presenting_authors(submission))
+                                st.write("**Corresponding Authors:**", get_corresponding_authors(submission))
+                                st.write("**Session:**", safe_get(submission, 'session'))
+                                st.write("**Contact:**", safe_get(submission, 'contact_email'))
+                                contact_phone = safe_get(submission, 'contact_phone')
+                                if contact_phone != 'N/A':
+                                    st.write("**Phone:**", contact_phone)
+                                st.write("**Accommodation:**", safe_get(submission, 'accommodation_dates'))
                             
                             with col2:
-                                st.write("**Submission ID:**", submission.get('submission_id', 'N/A'))
-                                st.write("**Language:**", submission['language'])
+                                st.write("**Submission ID:**", safe_get(submission, 'submission_id'))
+                                st.write("**Language:**", safe_get(submission, 'language'))
                                 st.write("**Status:**", "✅ Submitted")
                             
                             st.write("**Abstract:**")
-                            st.write(submission['abstract'])
+                            st.write(safe_get(submission, 'abstract'))
                 else:
                     st.info(t("no_submissions"))
             else:
@@ -722,16 +816,6 @@ else:
                     all_accommodation.append(f"Custom: {custom_dates.strip()}")
                 
                 accommodation_display = "; ".join(all_accommodation) if all_accommodation else "Not needed"
-                
-                required_data = {
-                    'paper_title': paper_title,
-                    'authors': valid_authors,
-                    'presenting_authors': presenting_authors,
-                    'corresponding_authors': corresponding_authors,
-                    'session': session,
-                    'abstract': abstract,
-                    'contact_email': contact_email
-                }
                 
                 # Validation
                 missing_fields = []
