@@ -945,6 +945,11 @@ else:
                 reset = st.form_submit_button(t('reset'), use_container_width=True)
             
             if submitted:
+                # 从session state和form外的字段获取住宿信息
+                selected_dates = st.session_state.get('selected_accommodation_dates', [])
+                custom_dates = st.session_state.get('custom_accommodation_dates', "")
+                accommodation_needed = bool(selected_dates or custom_dates.strip())
+                
                 # Validate authors
                 valid_authors = [a for a in st.session_state.authors if a['name'].strip() and a['affiliation'].strip()]
                 presenting_authors = [a for a in valid_authors if a['is_presenting']]
@@ -1029,6 +1034,9 @@ else:
                     # Reset authors and uploaded file for next submission
                     st.session_state.authors = [{'name': '', 'affiliation': '', 'is_presenting': False, 'is_corresponding': False}]
                     st.session_state.uploaded_abstract = None
+                    # Reset accommodation selections
+                    st.session_state.selected_accommodation_dates = []
+                    st.session_state.custom_accommodation_dates = ""
                     
                     st.success(t('success'))
                     st.balloons()
@@ -1062,6 +1070,9 @@ else:
                 # Reset form and session state
                 st.session_state.authors = [{'name': '', 'affiliation': '', 'is_presenting': False, 'is_corresponding': False}]
                 st.session_state.uploaded_abstract = None
+                # Reset accommodation selections
+                st.session_state.selected_accommodation_dates = []
+                st.session_state.custom_accommodation_dates = ""
                 st.rerun()
 
 # 页脚
