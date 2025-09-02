@@ -4,6 +4,7 @@ from datetime import datetime
 import json
 import os
 import hashlib
+import io
 
 # 页面配置
 st.set_page_config(
@@ -30,7 +31,9 @@ LANGUAGES = {
         "authors_help": "Add all authors with their affiliations and roles",
         "session": "Session",
         "abstract": "Abstract",
-        "abstract_help": "Please provide a detailed abstract of your research",
+        "abstract_help": "Please provide a detailed abstract of your research or upload an abstract file",
+        "abstract_upload": "Upload Abstract File",
+        "download_template": "Download Template",
         "accommodation": "Accommodation Dates",
         "accommodation_help": "Select specific nights you need accommodation during the conference period",
         "custom_dates": "Other dates (please specify):",
@@ -52,13 +55,15 @@ LANGUAGES = {
         "login": "Login",
         "logout": "Logout",
         "invalid_password": "❌ Invalid password",
+        "file_uploaded": "✅ File uploaded successfully",
+        "file_error": "❌ Error uploading file",
         "sessions": [
             "Multifunctional Materials (Energy Storage, Ferroelectric Materials, Metamaterials)",
             "Advanced Manufacturing & Processing Techniques (Additive Manufacturing, 3D Printing, Novel Fabrication)",
             "Multi-scale Modeling & Simulation (Molecular Dynamics, Finite Element, Phase-field Methods)",
             "Machine Learning in Computational Mechanics & Materials Science (AI-driven Design, Data-driven Methods)"
         ],
-        "dates": [
+        "accommodation_dates": [
             "October 12, 2025 (Friday)",
             "October 13, 2025 (Saturday)", 
             "October 14, 2025 (Sunday)",
@@ -106,7 +111,9 @@ LANGUAGES = {
         "authors_help": "添加所有作者的姓名、单位和角色信息",
         "session": "分会场主题",
         "abstract": "摘要",
-        "abstract_help": "请提供详细的研究摘要",
+        "abstract_help": "请提供详细的研究摘要或上传摘要文件",
+        "abstract_upload": "上传摘要文件",
+        "download_template": "下载模板",
         "accommodation": "住宿日期",
         "accommodation_help": "选择会议期间需要住宿的具体日期",
         "custom_dates": "其他日期（请注明）：",
@@ -128,13 +135,9 @@ LANGUAGES = {
         "login": "登录",
         "logout": "退出",
         "invalid_password": "❌ 密码错误",
-        "sessions": [
-            "多功能材料（储能材料、铁电材料、超材料）",
-            "先进制造与加工技术（增材制造、3D打印、新型制备工艺）",
-            "多尺度建模与仿真（分子动力学、有限元、相场方法）",
-            "机器学习在计算力学与材料科学中的应用（AI驱动设计、数据驱动方法）"
-        ],
-        "dates": [
+        "file_uploaded": "✅ 文件上传成功",
+        "file_error": "❌ 文件上传错误",
+        "accommodation_dates": [
             "2025年10月12日（周五）",
             "2025年10月13日（周六）",
             "2025年10月14日（周日）",
@@ -180,9 +183,47 @@ if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
 if 'authors' not in st.session_state:
     st.session_state.authors = [{'name': '', 'affiliation': '', 'is_presenting': False, 'is_corresponding': False}]
+if 'uploaded_abstract' not in st.session_state:
+    st.session_state.uploaded_abstract = None
 
 # 数据文件路径
 DATA_FILE = os.path.join(os.getcwd(), 'submissions.json')
+
+# 生成空的模板文件内容
+def generate_abstract_template():
+    """生成摘要模板"""
+    template_content = """Abstract Template for International Forum of Graduate Students on Mechanics of Smart Materials
+
+Title: [Your Paper Title]
+
+Authors: [Author 1, Affiliation 1; Author 2, Affiliation 2; ...]
+
+Abstract:
+[Please provide a detailed abstract of your research work. The abstract should be 200-500 words and include:
+1. Background and motivation
+2. Research objectives
+3. Methodology/approach
+4. Key findings/results
+5. Conclusions and significance]
+
+Keywords: [3-5 keywords separated by commas]
+
+Research Area: [Select one of the following:
+- Composite Materials & Structural Mechanics
+- Energy Materials & Storage Systems
+- Functional Materials & Smart Systems
+- Soft Electronics & Bio-inspired Robotics
+- Metamaterials & Phononic Crystals
+- Aircraft & Aerospace Materials]
+
+Presentation Type: [Oral/Poster]
+
+References (if any):
+[1] 
+[2] 
+[3]
+"""
+    return template_content
 
 # 安全获取字段值的辅助函数
 def safe_get(submission, *keys):
@@ -273,6 +314,29 @@ def generate_submission_id(email, title):
 def t(key):
     return LANGUAGES[st.session_state.language][key]
 
+# 处理上传的文件
+def process_uploaded_file(uploaded_file):
+    """处理上传的摘要文件"""
+    if uploaded_file is not None:
+        try:
+            # 读取文件内容
+            if uploaded_file.type == "text/plain":
+                content = str(uploaded_file.read(), "utf-8")
+            elif uploaded_file.type == "application/pdf":
+                # 对于PDF文件，暂时保存文件名和大小信息
+                content = f"PDF File: {uploaded_file.name} (Size: {uploaded_file.size} bytes)"
+            elif uploaded_file.type in ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword"]:
+                # 对于Word文件，暂时保存文件名和大小信息
+                content = f"Word File: {uploaded_file.name} (Size: {uploaded_file.size} bytes)"
+            else:
+                content = f"File: {uploaded_file.name} (Type: {uploaded_file.type})"
+            
+            return content
+        except Exception as e:
+            st.error(f"Error reading file: {e}")
+            return None
+    return None
+
 # 管理员登录界面
 def admin_login():
     st.header("🔐 " + t("admin_login"))
@@ -345,7 +409,7 @@ def admin_dashboard():
                 
                 with col3:
                     accommodation_needed = len([s for s in submissions 
-                                             if safe_get(s, 'accommodation_dates') != 'Not needed' and safe_get(s, 'accommodation_dates') != 'N/A'])
+                                             if safe_get(s, 'accommodation_dates') not in ['Not needed', 'N/A', 'None', '']])
                     st.metric("🏨 Need Accommodation", accommodation_needed)
                 
                 with col4:
@@ -411,7 +475,10 @@ def admin_dashboard():
                             st.write("**Corresponding Authors:**", get_corresponding_authors(submission))
                             st.write("**Session:**", safe_get(submission, 'session'))
                             st.write("**Abstract:**")
-                            st.text_area("", safe_get(submission, 'abstract'), height=100, disabled=True, key=f"abstract_{i}")
+                            abstract_text = safe_get(submission, 'abstract')
+                            if safe_get(submission, 'abstract_file_name') != 'N/A':
+                                st.write(f"📎 Uploaded file: {safe_get(submission, 'abstract_file_name')}")
+                            st.text_area("", abstract_text, height=100, disabled=True, key=f"abstract_{i}")
                         
                         with col2:
                             st.write("**Contact Info:**")
@@ -473,7 +540,7 @@ def admin_dashboard():
                 # 住宿需求
                 st.write("**🏨 Accommodation Analysis:**")
                 accommodation_needed = len([s for s in submissions 
-                                         if safe_get(s, 'accommodation_dates') not in ['Not needed', 'N/A', '']])
+                                         if safe_get(s, 'accommodation_dates') not in ['Not needed', 'N/A', 'None', '']])
                 accommodation_not_needed = len(submissions) - accommodation_needed
                 
                 col1, col2 = st.columns(2)
@@ -502,6 +569,7 @@ def admin_dashboard():
                             'Corresponding_Authors': get_corresponding_authors(s),
                             'Session': safe_get(s, 'session'),
                             'Abstract': safe_get(s, 'abstract'),
+                            'Abstract_File': safe_get(s, 'abstract_file_name'),
                             'Contact_Email': safe_get(s, 'contact_email'),
                             'Contact_Phone': safe_get(s, 'contact_phone'),
                             'Accommodation_Dates': safe_get(s, 'accommodation_dates'),
@@ -661,6 +729,8 @@ else:
                                 st.write("**Submission ID:**", safe_get(submission, 'submission_id'))
                                 st.write("**Language:**", safe_get(submission, 'language'))
                                 st.write("**Status:**", "✅ Submitted")
+                                if safe_get(submission, 'abstract_file_name') != 'N/A':
+                                    st.write("**File:**", safe_get(submission, 'abstract_file_name'))
                             
                             st.write("**Abstract:**")
                             st.write(safe_get(submission, 'abstract'))
@@ -760,24 +830,81 @@ else:
                     t('contact_phone'),
                     placeholder="+86 138xxxx"
                 )
-                
-                accommodation_dates = st.multiselect(
-                    t('accommodation'),
-                    options=t('dates'),
-                    help=t('accommodation_help')
-                )
-                
-                # Custom dates option
-                custom_dates = st.text_input(
-                    t('custom_dates'),
-                    placeholder="e.g., October 11, October 17, etc."
+            
+            # 住宿日期部分 - 改为复选框格式
+            st.subheader(f"**{t('accommodation')}:**")
+            st.markdown(t('accommodation_help'))
+            
+            # 创建复选框网格
+            accommodation_cols = st.columns(3)
+            selected_dates = []
+            
+            for i, date_option in enumerate(t('accommodation_dates')):
+                col_index = i % 3
+                with accommodation_cols[col_index]:
+                    if st.checkbox(date_option, key=f"accom_date_{i}"):
+                        selected_dates.append(date_option)
+            
+            # 其他日期选项
+            with st.container():
+                other_dates_needed = st.checkbox("Other dates")
+                custom_dates = ""
+                if other_dates_needed:
+                    custom_dates = st.text_input(
+                        t('custom_dates'),
+                        placeholder="e.g., October 11, October 17, etc."
+                    )
+            
+            # Abstract section with file upload
+            st.subheader(f"**{t('abstract')} *:**")
+            st.markdown(t('abstract_help'))
+            
+            # 模板下载和文件上传按钮
+            col_template, col_upload = st.columns(2)
+            
+            with col_template:
+                # 模板下载按钮
+                template_content = generate_abstract_template()
+                st.download_button(
+                    label="📄 " + t('download_template'),
+                    data=template_content,
+                    file_name="abstract_template.txt",
+                    mime="text/plain",
+                    use_container_width=True,
+                    help="Download the abstract template to fill out offline"
                 )
             
+            with col_upload:
+                # 文件上传
+                uploaded_file = st.file_uploader(
+                    "📎 " + t('abstract_upload'),
+                    type=['txt', 'pdf', 'doc', 'docx'],
+                    help="Upload your completed abstract file (txt, pdf, doc, docx)",
+                    key="abstract_file"
+                )
+            
+            # 处理上传的文件
+            uploaded_abstract_content = ""
+            uploaded_file_name = ""
+            
+            if uploaded_file is not None:
+                uploaded_abstract_content = process_uploaded_file(uploaded_file)
+                uploaded_file_name = uploaded_file.name
+                if uploaded_abstract_content:
+                    st.success(f"{t('file_uploaded')}: {uploaded_file_name}")
+                    # 显示文件内容预览（如果是文本）
+                    if uploaded_file.type == "text/plain":
+                        with st.expander("📄 File Preview"):
+                            st.text_area("", uploaded_abstract_content, height=150, disabled=True)
+                else:
+                    st.error(t('file_error'))
+            
+            # 摘要文本输入（如果没有上传文件）
             abstract = st.text_area(
-                f"{t('abstract')} *",
+                f"Or enter abstract text directly:",
                 height=200,
-                help=t('abstract_help'),
-                placeholder="Please provide a detailed abstract of your research (200-500 words recommended)..."
+                placeholder="Please provide a detailed abstract of your research (200-500 words recommended)...",
+                help="You can either upload a file above or enter text here directly"
             )
             
             col1, col2, col3 = st.columns([1, 1, 1])
@@ -810,12 +937,15 @@ else:
                 
                 # Combine accommodation dates
                 all_accommodation = []
-                if accommodation_dates:
-                    all_accommodation.extend(accommodation_dates)
+                if selected_dates:
+                    all_accommodation.extend(selected_dates)
                 if custom_dates.strip():
                     all_accommodation.append(f"Custom: {custom_dates.strip()}")
                 
                 accommodation_display = "; ".join(all_accommodation) if all_accommodation else "Not needed"
+                
+                # Abstract handling - prioritize uploaded file
+                final_abstract = uploaded_abstract_content if uploaded_abstract_content else abstract
                 
                 # Validation
                 missing_fields = []
@@ -829,8 +959,8 @@ else:
                     missing_fields.append("At least one corresponding author")
                 if not session:
                     missing_fields.append("Session")
-                if not abstract.strip():
-                    missing_fields.append("Abstract")
+                if not final_abstract.strip():
+                    missing_fields.append("Abstract (either text or uploaded file)")
                 if not contact_email.strip():
                     missing_fields.append("Contact Email")
                 
@@ -845,9 +975,10 @@ else:
                         'presenting_authors': [f"{a['name']} ({a['affiliation']})" for a in presenting_authors],
                         'corresponding_authors': [f"{a['name']} ({a['affiliation']})" for a in corresponding_authors],
                         'session': session,
-                        'abstract': abstract,
+                        'abstract': final_abstract,
+                        'abstract_file_name': uploaded_file_name if uploaded_file_name else 'N/A',
                         'contact_email': contact_email,
-                        'contact_phone': contact_phone,
+                        'contact_phone': contact_phone if contact_phone else 'N/A',
                         'accommodation_dates': accommodation_display,
                         'submission_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'language': st.session_state.language
@@ -857,8 +988,9 @@ else:
                     submissions.append(submission)
                     save_data(submissions)
                     
-                    # Reset authors for next submission
+                    # Reset authors and uploaded file for next submission
                     st.session_state.authors = [{'name': '', 'affiliation': '', 'is_presenting': False, 'is_corresponding': False}]
+                    st.session_state.uploaded_abstract = None
                     
                     st.success(t('success'))
                     st.balloons()
@@ -873,6 +1005,8 @@ else:
                         st.write("**Contact:**", contact_email)
                         if all_accommodation:
                             st.write("**Accommodation:**", accommodation_display)
+                        if uploaded_file_name:
+                            st.write("**Uploaded File:**", uploaded_file_name)
                         st.write("**Submission Time:**", submission['submission_time'])
                         
                         st.info("💡 **Tip:** Save your Submission ID for future reference!")
@@ -883,6 +1017,11 @@ else:
                     for field in missing_fields:
                         st.write(f"- {field}")
 
+            if reset:
+                # Reset form and session state
+                st.session_state.authors = [{'name': '', 'affiliation': '', 'is_presenting': False, 'is_corresponding': False}]
+                st.session_state.uploaded_abstract = None
+                st.rerun()
 
 # 页脚
 st.markdown("---")
@@ -922,6 +1061,19 @@ st.markdown("""
         padding: 1rem;
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    /* 自定义复选框样式 */
+    .stCheckbox > label {
+        font-size: 14px;
+    }
+    
+    /* 文件上传区域样式 */
+    .uploadedFile {
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
     }
 </style>
 """, unsafe_allow_html=True)
