@@ -183,9 +183,10 @@ if 'uploaded_abstract' not in st.session_state:
 # 数据文件路径
 DATA_FILE = os.path.join(os.getcwd(), 'submissions.json')
 
-# 生成空的模板文件内容
+# 生成模板文件内容
 def generate_abstract_template():
     """生成摘要模板"""
+    # 你可以在这里直接粘贴你的Word文档内容
     template_content = """Abstract Template for International Forum of Graduate Students on Mechanics of Smart Materials
 
 Title: [Your Paper Title]
@@ -216,6 +217,21 @@ References (if any):
 [3]
 """
     return template_content
+
+def generate_custom_word_template():
+    """生成自定义Word模板内容"""
+    # 将你的Word文档内容复制粘贴到这里
+    custom_template = """你的Word文档内容
+    
+可以包含：
+- 格式化的文本
+- 表格内容（用文本表示）
+- 特殊说明
+- 填写指导等等
+
+只需要将Word内容复制粘贴到这里即可
+"""
+    return custom_template
 
 # 安全获取字段值的辅助函数
 def safe_get(submission, *keys):
@@ -819,12 +835,24 @@ else:
         col_template, col_upload = st.columns(2)
         
         with col_template:
+            # 选择模板类型
+            template_type = st.selectbox(
+                "选择模板类型 / Choose Template Type",
+                ["Default Template 默认模板", "Custom Word Template 自定义Word模板"]
+            )
+            
+            if template_type == "Default Template 默认模板":
+                template_content = generate_abstract_template()
+                filename = "abstract_template.txt"
+            else:
+                template_content = generate_custom_word_template()
+                filename = "custom_word_template.txt"
+            
             # 模板下载按钮
-            template_content = generate_abstract_template()
             st.download_button(
                 label="📄 " + t('download_template'),
                 data=template_content,
-                file_name="abstract_template.txt",
+                file_name=filename,
                 mime="text/plain",
                 use_container_width=True,
                 help="Download the abstract template to fill out offline"
@@ -946,9 +974,22 @@ else:
             
             if submitted:
                 # 从session state和form外的字段获取住宿信息
-                selected_dates = st.session_state.get('selected_accommodation_dates', [])
-                custom_dates = st.session_state.get('custom_accommodation_dates', "")
-                accommodation_needed = bool(selected_dates or custom_dates.strip())
+                accommodation_needed = st.session_state.get('accommodation_needed', False)
+                full_name = st.session_state.get('full_name_value', "")
+                passport_number = st.session_state.get('passport_value', "")
+                
+                # 获取选择的住宿日期
+                selected_dates = []
+                for i, date_option in enumerate(t('accommodation_dates')):
+                    if f"accom_date_outside_{i}" in st.session_state and st.session_state[f"accom_date_outside_{i}"]:
+                        selected_dates.append(date_option)
+                
+                # 获取其他日期
+                custom_dates = ""
+                if "Other dates" in st.session_state and st.session_state["Other dates"]:
+                    custom_dates = st.session_state.get("custom_dates", "")
+                elif "其他日期" in st.session_state and st.session_state["其他日期"]:
+                    custom_dates = st.session_state.get("custom_dates", "")
                 
                 # Validate authors
                 valid_authors = [a for a in st.session_state.authors if a['name'].strip() and a['affiliation'].strip()]
@@ -984,26 +1025,26 @@ else:
                 # Validation
                 missing_fields = []
                 if not paper_title.strip():
-                    missing_fields.append("Paper Title")
+                    missing_fields.append("Paper Title / 论文标题")
                 if not valid_authors:
-                    missing_fields.append("At least one author with name and affiliation")
+                    missing_fields.append("At least one author with name and affiliation / 至少一位作者的姓名和单位")
                 if not presenting_authors:
-                    missing_fields.append("At least one presenting author")
+                    missing_fields.append("At least one presenting author / 至少一位报告作者")
                 if not corresponding_authors:
-                    missing_fields.append("At least one corresponding author")
+                    missing_fields.append("At least one corresponding author / 至少一位通讯作者")
                 if not session:
-                    missing_fields.append("Session")
+                    missing_fields.append("Session / 分会场主题")
                 if not final_abstract.strip():
-                    missing_fields.append("Abstract (either text or uploaded file)")
+                    missing_fields.append("Abstract (either text or uploaded file) / 摘要（文本或上传文件）")
                 if not contact_email.strip():
-                    missing_fields.append("Contact Email")
+                    missing_fields.append("Contact Email / 联系邮箱")
                 
                 # 住宿相关验证
                 if accommodation_needed:
                     if not full_name.strip():
-                        missing_fields.append("Full Name (required for accommodation)")
+                        missing_fields.append("Full Name (required for accommodation) / 姓名（住宿必填）")
                     if not passport_number.strip():
-                        missing_fields.append("Passport Number (required for accommodation)")
+                        missing_fields.append("Passport Number (required for accommodation) / 护照号（住宿必填）")
                 
                 if not missing_fields:
                     submission_id = generate_submission_id(contact_email, paper_title)
@@ -1035,34 +1076,35 @@ else:
                     st.session_state.authors = [{'name': '', 'affiliation': '', 'is_presenting': False, 'is_corresponding': False}]
                     st.session_state.uploaded_abstract = None
                     # Reset accommodation selections
-                    st.session_state.selected_accommodation_dates = []
-                    st.session_state.custom_accommodation_dates = ""
+                    st.session_state.accommodation_needed = False
+                    st.session_state.full_name_value = ""
+                    st.session_state.passport_value = ""
                     
                     st.success(t('success'))
                     st.balloons()
                     
-                    with st.expander("📋 Submission Summary"):
-                        st.write("**Submission ID:**", submission_id)
-                        st.write("**Title:**", paper_title)
-                        st.write("**Authors:**", authors_display)
-                        st.write("**Presenting Authors:**", "; ".join(submission['presenting_authors']))
-                        st.write("**Corresponding Authors:**", "; ".join(submission['corresponding_authors']))
-                        st.write("**Session:**", session)
-                        st.write("**Contact:**", contact_email)
+                    with st.expander("📋 Submission Summary / 提交摘要"):
+                        st.write("**Submission ID / 提交编号:**", submission_id)
+                        st.write("**Title / 标题:**", paper_title)
+                        st.write("**Authors / 作者:**", authors_display)
+                        st.write("**Presenting Authors / 报告作者:**", "; ".join(submission['presenting_authors']))
+                        st.write("**Corresponding Authors / 通讯作者:**", "; ".join(submission['corresponding_authors']))
+                        st.write("**Session / 分会场:**", session)
+                        st.write("**Contact / 联系方式:**", contact_email)
                         if all_accommodation:
-                            st.write("**Accommodation:**", accommodation_display)
+                            st.write("**Accommodation / 住宿:**", accommodation_display)
                             if accommodation_needed:
-                                st.write("**Full Name:**", full_name)
-                                st.write("**Passport Number:**", passport_number)
+                                st.write("**Full Name / 姓名:**", full_name)
+                                st.write("**Passport Number / 护照号:**", passport_number)
                         if uploaded_file_name:
-                            st.write("**Uploaded File:**", uploaded_file_name)
-                        st.write("**Submission Time:**", submission['submission_time'])
+                            st.write("**Uploaded File / 上传文件:**", uploaded_file_name)
+                        st.write("**Submission Time / 提交时间:**", submission['submission_time'])
                         
-                        st.info("💡 **Tip:** Save your Submission ID for future reference!")
+                        st.info("💡 **Tip:** Save your Submission ID for future reference! / 请保存您的提交编号以备查询！")
                     
                 else:
                     st.error(t('error'))
-                    st.write("Missing required fields:")
+                    st.write("Missing required fields / 缺少必填字段:")
                     for field in missing_fields:
                         st.write(f"- {field}")
 
@@ -1071,8 +1113,9 @@ else:
                 st.session_state.authors = [{'name': '', 'affiliation': '', 'is_presenting': False, 'is_corresponding': False}]
                 st.session_state.uploaded_abstract = None
                 # Reset accommodation selections
-                st.session_state.selected_accommodation_dates = []
-                st.session_state.custom_accommodation_dates = ""
+                st.session_state.accommodation_needed = False
+                st.session_state.full_name_value = ""
+                st.session_state.passport_value = ""
                 st.rerun()
 
 # 页脚
