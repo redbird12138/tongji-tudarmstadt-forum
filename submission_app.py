@@ -35,7 +35,10 @@ LANGUAGES = {
         "abstract_upload": "Upload Abstract File",
         "download_template": "Download Template",
         "accommodation": "Accommodation Dates",
-        "accommodation_help": "Select specific nights you need accommodation during the conference period",
+        "accommodation_help": "Select specific nights you need accommodation during the conference period (for overseas participants only)",
+        "full_name": "Full Name",
+        "passport_number": "Passport Number",
+        "accommodation_info": "Personal Information for Accommodation",
         "custom_dates": "Other dates (please specify):",
         "contact_email": "Contact Email",
         "contact_phone": "Contact Phone (Optional)",
@@ -58,10 +61,10 @@ LANGUAGES = {
         "file_uploaded": "✅ File uploaded successfully",
         "file_error": "❌ Error uploading file",
         "sessions": [
-            "Multifunctional Materials (Energy Storage, Ferroelectric Materials, Metamaterials)",
-            "Advanced Manufacturing & Processing Techniques (Additive Manufacturing, 3D Printing, Novel Fabrication)",
-            "Multi-scale Modeling & Simulation (Molecular Dynamics, Finite Element, Phase-field Methods)",
-            "Machine Learning in Computational Mechanics & Materials Science (AI-driven Design, Data-driven Methods)"
+            "Multifunctional Materials and Smart Systems (Energy Materials, Ferroelectric Materials, Metamaterials, Phononic Crystals)",
+            "Advanced Manufacturing & Processing Techniques (Additive Manufacturing, Composite Manufacturing Methods)",
+            "Multi-scale Modeling & Simulation (Molecular Dynamics, Novel Finite Element Methods, Phase-Field Method)",
+            "Machine Learning in Computational Mechanics and Materials Sciences"
         ],
         "accommodation_dates": [
             "October 12, 2025 (Friday)",
@@ -76,22 +79,16 @@ LANGUAGES = {
         This forum is jointly organized by **Tongji University** and **TU Darmstadt (Technische Universität Darmstadt)** to strengthen academic collaboration in the field of smart materials mechanics.
         
         We welcome submissions on **TOPICS** including but not limited to:
-        - **Composite Materials & Structural Mechanics**
-        - **Energy Materials & Storage Systems** 
-        - **Functional Materials & Smart Systems**
-        - **Soft Electronics & Bio-inspired Robotics**
-        - **Metamaterials & Phononic Crystals**
-        - **Aircraft & Aerospace Materials**
+        - **Multifunctional Materials and Smart Systems (Energy Materials, Ferroelectric Materials, Metamaterials, Phononic Crystals)**
+        - **Advanced Manufacturing & Processing Techniques (Additive Manufacturing, Composite Manufacturing Methods)**
+        - **Multi-scale Modeling & Simulation (Molecular Dynamics, Novel Finite Element Methods, Phase-Field Method)**
+        - **Machine Learning in Computational Mechanics and Materials Sciences**
         
-        **Research Approaches Welcome:**
-        - Theoretical and experimental contributions
-        - Multi-scale modeling and simulation
-        - Data-driven and Machine Learning methods
-        - Computational mechanics approaches
+        Both theoretical and experimental contributions are welcome, as well as data-driven and Machine Learning methods.
         
         **Registration & Fees:**
         - No registration fee required
-        - Oral presentation participants: **free accommodations** available Oct 12-16 (4 nights)
+        - **Oral presentation participants from overseas: free accommodations available Oct 12-16 (4 nights)**
         - Travel expenses covered by participants
         
         **Contact:** 19531@tongji.edu.cn (Prof. Zhao) | **Organizers:** Tongji University & TU Darmstadt
@@ -115,7 +112,10 @@ LANGUAGES = {
         "abstract_upload": "上传摘要文件",
         "download_template": "下载模板",
         "accommodation": "住宿日期",
-        "accommodation_help": "选择会议期间需要住宿的具体日期",
+        "accommodation_help": "选择会议期间需要住宿的具体日期（仅限海外参会者）",
+        "full_name": "姓名",
+        "passport_number": "护照号",
+        "accommodation_info": "住宿个人信息",
         "custom_dates": "其他日期（请注明）：",
         "contact_email": "联系邮箱",
         "contact_phone": "联系电话（可选）",
@@ -150,22 +150,16 @@ LANGUAGES = {
         本论坛由**同济大学**与**达姆施塔特工业大学(TU Darmstadt)**联合主办，旨在加强智能材料力学领域的学术合作。
         
         欢迎关于以下**主题**的投稿：
-        - **复合材料与结构力学**
-        - **能源材料与储能系统**
-        - **功能材料与智能系统**
-        - **软体电子学与仿生机器人学**
-        - **超材料与声子晶体**
-        - **航空航天材料**
+        - **多功能材料与智能系统（能源材料、铁电材料、超材料、声子晶体）**
+        - **先进制造与加工技术（增材制造、复合材料制造方法）**
+        - **多尺度建模与仿真（分子动力学、新型有限元方法、相场方法）**
+        - **计算力学与材料科学中的机器学习**
         
-        **欢迎的研究方法：**
-        - 理论和实验研究
-        - 多尺度建模与仿真
-        - 数据驱动与机器学习方法
-        - 计算力学方法
+        欢迎理论和实验研究，以及数据驱动与机器学习方法。
         
         **注册与费用：**
         - 无需注册费
-        - 口头报告参与者：可申请**免费住宿**（10月12-16日，4晚）
+        - **海外口头报告参与者：可申请免费住宿（10月12-16日，4晚）**
         - 差旅费用需自行承担
         
         **联系方式：** 19531@tongji.edu.cn（赵教授）| **主办方：** 同济大学 & 达姆施塔特工业大学
@@ -209,12 +203,10 @@ Abstract:
 Keywords: [3-5 keywords separated by commas]
 
 Research Area: [Select one of the following:
-- Composite Materials & Structural Mechanics
-- Energy Materials & Storage Systems
-- Functional Materials & Smart Systems
-- Soft Electronics & Bio-inspired Robotics
-- Metamaterials & Phononic Crystals
-- Aircraft & Aerospace Materials]
+- Multifunctional Materials and Smart Systems
+- Advanced Manufacturing & Processing Techniques
+- Multi-scale Modeling & Simulation
+- Machine Learning in Computational Mechanics and Materials Sciences]
 
 Presentation Type: [Oral/Poster]
 
@@ -493,6 +485,12 @@ def admin_dashboard():
                             st.write("🌐", safe_get(submission, 'language'))
                             st.write("🏨", safe_get(submission, 'accommodation_dates'))
                             
+                            # 住宿信息
+                            if safe_get(submission, 'full_name') != 'N/A':
+                                st.write("👤", safe_get(submission, 'full_name'))
+                            if safe_get(submission, 'passport_number') != 'N/A':
+                                st.write("📘", safe_get(submission, 'passport_number'))
+                            
                             # 删除按钮
                             st.markdown("---")
                             delete_key = f"delete_{i}_{safe_get(submission, 'submission_id')}"
@@ -572,6 +570,8 @@ def admin_dashboard():
                             'Abstract_File': safe_get(s, 'abstract_file_name'),
                             'Contact_Email': safe_get(s, 'contact_email'),
                             'Contact_Phone': safe_get(s, 'contact_phone'),
+                            'Full_Name': safe_get(s, 'full_name'),
+                            'Passport_Number': safe_get(s, 'passport_number'),
                             'Accommodation_Dates': safe_get(s, 'accommodation_dates'),
                             'Submission_Time': safe_get(s, 'submission_time'),
                             'Language': safe_get(s, 'language')
@@ -602,6 +602,8 @@ def admin_dashboard():
                                 'Presenting_Author': get_presenting_authors(s),
                                 'Email': safe_get(s, 'contact_email'),
                                 'Session': safe_get(s, 'session'),
+                                'Full_Name': safe_get(s, 'full_name'),
+                                'Passport_Number': safe_get(s, 'passport_number'),
                                 'Accommodation': safe_get(s, 'accommodation_dates'),
                                 'Submission_Time': safe_get(s, 'submission_time')
                             })
@@ -731,6 +733,10 @@ else:
                                 st.write("**Status:**", "✅ Submitted")
                                 if safe_get(submission, 'abstract_file_name') != 'N/A':
                                     st.write("**File:**", safe_get(submission, 'abstract_file_name'))
+                                if safe_get(submission, 'full_name') != 'N/A':
+                                    st.write("**Full Name:**", safe_get(submission, 'full_name'))
+                                if safe_get(submission, 'passport_number') != 'N/A':
+                                    st.write("**Passport:**", safe_get(submission, 'passport_number'))
                             
                             st.write("**Abstract:**")
                             st.write(safe_get(submission, 'abstract'))
@@ -805,6 +811,50 @@ else:
             })
             st.rerun()
 
+        # Abstract section with file upload (outside form)
+        st.subheader(f"**{t('abstract')} *:**")
+        st.markdown(t('abstract_help'))
+        
+        # 模板下载和文件上传按钮 (outside form)
+        col_template, col_upload = st.columns(2)
+        
+        with col_template:
+            # 模板下载按钮
+            template_content = generate_abstract_template()
+            st.download_button(
+                label="📄 " + t('download_template'),
+                data=template_content,
+                file_name="abstract_template.txt",
+                mime="text/plain",
+                use_container_width=True,
+                help="Download the abstract template to fill out offline"
+            )
+        
+        with col_upload:
+            # 文件上传
+            uploaded_file = st.file_uploader(
+                "📎 " + t('abstract_upload'),
+                type=['txt', 'pdf', 'doc', 'docx'],
+                help="Upload your completed abstract file (txt, pdf, doc, docx)",
+                key="abstract_file"
+            )
+        
+        # 处理上传的文件
+        uploaded_abstract_content = ""
+        uploaded_file_name = ""
+        
+        if uploaded_file is not None:
+            uploaded_abstract_content = process_uploaded_file(uploaded_file)
+            uploaded_file_name = uploaded_file.name
+            if uploaded_abstract_content:
+                st.success(f"{t('file_uploaded')}: {uploaded_file_name}")
+                # 显示文件内容预览（如果是文本）
+                if uploaded_file.type == "text/plain":
+                    with st.expander("📄 File Preview"):
+                        st.text_area("", uploaded_abstract_content, height=150, disabled=True)
+            else:
+                st.error(t('file_error'))
+
         with st.form("submission_form", clear_on_submit=False):
             col1, col2 = st.columns([2, 1])
             
@@ -831,6 +881,14 @@ else:
                     placeholder="+86 138xxxx"
                 )
             
+            # 摘要文本输入（如果没有上传文件）
+            abstract = st.text_area(
+                f"Or enter abstract text directly:",
+                height=200,
+                placeholder="Please provide a detailed abstract of your research (200-500 words recommended)...",
+                help="You can either upload a file above or enter text here directly"
+            )
+            
             # 住宿日期部分 - 改为复选框格式
             st.subheader(f"**{t('accommodation')}:**")
             st.markdown(t('accommodation_help'))
@@ -855,57 +913,28 @@ else:
                         placeholder="e.g., October 11, October 17, etc."
                     )
             
-            # Abstract section with file upload
-            st.subheader(f"**{t('abstract')} *:**")
-            st.markdown(t('abstract_help'))
+            # 住宿个人信息 - 仅在选择住宿时显示
+            accommodation_needed = bool(selected_dates or custom_dates.strip())
+            full_name = ""
+            passport_number = ""
             
-            # 模板下载和文件上传按钮
-            col_template, col_upload = st.columns(2)
-            
-            with col_template:
-                # 模板下载按钮
-                template_content = generate_abstract_template()
-                st.download_button(
-                    label="📄 " + t('download_template'),
-                    data=template_content,
-                    file_name="abstract_template.txt",
-                    mime="text/plain",
-                    use_container_width=True,
-                    help="Download the abstract template to fill out offline"
-                )
-            
-            with col_upload:
-                # 文件上传
-                uploaded_file = st.file_uploader(
-                    "📎 " + t('abstract_upload'),
-                    type=['txt', 'pdf', 'doc', 'docx'],
-                    help="Upload your completed abstract file (txt, pdf, doc, docx)",
-                    key="abstract_file"
-                )
-            
-            # 处理上传的文件
-            uploaded_abstract_content = ""
-            uploaded_file_name = ""
-            
-            if uploaded_file is not None:
-                uploaded_abstract_content = process_uploaded_file(uploaded_file)
-                uploaded_file_name = uploaded_file.name
-                if uploaded_abstract_content:
-                    st.success(f"{t('file_uploaded')}: {uploaded_file_name}")
-                    # 显示文件内容预览（如果是文本）
-                    if uploaded_file.type == "text/plain":
-                        with st.expander("📄 File Preview"):
-                            st.text_area("", uploaded_abstract_content, height=150, disabled=True)
-                else:
-                    st.error(t('file_error'))
-            
-            # 摘要文本输入（如果没有上传文件）
-            abstract = st.text_area(
-                f"Or enter abstract text directly:",
-                height=200,
-                placeholder="Please provide a detailed abstract of your research (200-500 words recommended)...",
-                help="You can either upload a file above or enter text here directly"
-            )
+            if accommodation_needed:
+                st.subheader(f"**{t('accommodation_info')} *:**")
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    full_name = st.text_input(
+                        f"{t('full_name')} *",
+                        placeholder="John Smith",
+                        help="Required for accommodation booking"
+                    )
+                
+                with col2:
+                    passport_number = st.text_input(
+                        f"{t('passport_number')} *",
+                        placeholder="A12345678",
+                        help="Required for accommodation booking"
+                    )
             
             col1, col2, col3 = st.columns([1, 1, 1])
             
@@ -964,6 +993,13 @@ else:
                 if not contact_email.strip():
                     missing_fields.append("Contact Email")
                 
+                # 住宿相关验证
+                if accommodation_needed:
+                    if not full_name.strip():
+                        missing_fields.append("Full Name (required for accommodation)")
+                    if not passport_number.strip():
+                        missing_fields.append("Passport Number (required for accommodation)")
+                
                 if not missing_fields:
                     submission_id = generate_submission_id(contact_email, paper_title)
                     
@@ -980,6 +1016,8 @@ else:
                         'contact_email': contact_email,
                         'contact_phone': contact_phone if contact_phone else 'N/A',
                         'accommodation_dates': accommodation_display,
+                        'full_name': full_name if accommodation_needed else 'N/A',
+                        'passport_number': passport_number if accommodation_needed else 'N/A',
                         'submission_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'language': st.session_state.language
                     }
@@ -1005,6 +1043,9 @@ else:
                         st.write("**Contact:**", contact_email)
                         if all_accommodation:
                             st.write("**Accommodation:**", accommodation_display)
+                            if accommodation_needed:
+                                st.write("**Full Name:**", full_name)
+                                st.write("**Passport Number:**", passport_number)
                         if uploaded_file_name:
                             st.write("**Uploaded File:**", uploaded_file_name)
                         st.write("**Submission Time:**", submission['submission_time'])
