@@ -137,6 +137,12 @@ LANGUAGES = {
         "invalid_password": "❌ 密码错误",
         "file_uploaded": "✅ 文件上传成功",
         "file_error": "❌ 文件上传错误",
+        "sessions": [
+            "多功能材料与智能系统（能源材料、铁电材料、超材料、声子晶体）",
+            "先进制造与加工技术（增材制造、复合材料制造方法）",
+            "多尺度建模与仿真（分子动力学、新型有限元方法、相场方法）",
+            "计算力学与材料科学中的机器学习"
+        ],
         "accommodation_dates": [
             "2025年10月12日（周五）",
             "2025年10月13日（周六）",
@@ -186,7 +192,6 @@ DATA_FILE = os.path.join(os.getcwd(), 'submissions.json')
 # 生成模板文件内容
 def generate_abstract_template():
     """生成摘要模板"""
-    # 你可以在这里直接粘贴你的Word文档内容
     template_content = """Abstract Template for International Forum of Graduate Students on Mechanics of Smart Materials
 
 Title: [Your Paper Title]
@@ -220,16 +225,34 @@ References (if any):
 
 def generate_custom_word_template():
     """生成自定义Word模板内容"""
-    # 将你的Word文档内容复制粘贴到这里
-    custom_template = """你的Word文档内容
-    
-可以包含：
-- 格式化的文本
-- 表格内容（用文本表示）
-- 特殊说明
-- 填写指导等等
+    custom_template = """智能材料力学研究生国际论坛投稿模板
 
-只需要将Word内容复制粘贴到这里即可
+论文标题：[请填写您的论文标题]
+
+作者信息：[作者1，单位1；作者2，单位2；...]
+
+摘要：
+[请提供详细的研究摘要，建议200-500字，包括：
+1. 研究背景与动机
+2. 研究目标
+3. 研究方法
+4. 主要发现/结果
+5. 结论与意义]
+
+关键词：[3-5个关键词，用逗号分隔]
+
+研究领域：[请选择以下之一：
+- 多功能材料与智能系统
+- 先进制造与加工技术
+- 多尺度建模与仿真
+- 计算力学与材料科学中的机器学习]
+
+报告类型：[口头报告/海报展示]
+
+参考文献（如有）：
+[1] 
+[2] 
+[3]
 """
     return custom_template
 
@@ -244,11 +267,9 @@ def safe_get(submission, *keys):
 # 格式化作者信息的辅助函数
 def format_authors_display(submission):
     """格式化作者信息显示"""
-    # 优先使用新格式的作者数据
     if 'authors_display' in submission:
         return submission['authors_display']
     
-    # 如果有authors数组，格式化显示
     if 'authors' in submission and isinstance(submission['authors'], list):
         authors_text = []
         for author in submission['authors']:
@@ -265,10 +286,8 @@ def format_authors_display(submission):
         if authors_text:
             return "; ".join(authors_text)
     
-    # 最后尝试使用旧格式
     return safe_get(submission, 'authors_affiliations', 'presenting_author')
 
-# 获取报告作者信息
 def get_presenting_authors(submission):
     """获取报告作者信息"""
     if 'presenting_authors' in submission and isinstance(submission['presenting_authors'], list):
@@ -280,7 +299,6 @@ def get_presenting_authors(submission):
         return "; ".join(presenting) if presenting else "N/A"
     return "N/A"
 
-# 获取通讯作者信息
 def get_corresponding_authors(submission):
     """获取通讯作者信息"""
     if 'corresponding_authors' in submission and isinstance(submission['corresponding_authors'], list):
@@ -318,23 +336,28 @@ def generate_submission_id(email, title):
     content = f"{email.lower()}{title.lower()}{datetime.now().strftime('%Y%m%d')}"
     return hashlib.md5(content.encode()).hexdigest()[:8]
 
-# 获取当前语言的文本
+# 获取当前语言的文本 - 修复KeyError问题
 def t(key):
-    return LANGUAGES[st.session_state.language][key]
+    try:
+        return LANGUAGES[st.session_state.language][key]
+    except KeyError:
+        # 如果键不存在，尝试使用英文版本
+        try:
+            return LANGUAGES['en'][key]
+        except KeyError:
+            # 如果英文版本也不存在，返回键本身
+            return key
 
 # 处理上传的文件
 def process_uploaded_file(uploaded_file):
     """处理上传的摘要文件"""
     if uploaded_file is not None:
         try:
-            # 读取文件内容
             if uploaded_file.type == "text/plain":
                 content = str(uploaded_file.read(), "utf-8")
             elif uploaded_file.type == "application/pdf":
-                # 对于PDF文件，暂时保存文件名和大小信息
                 content = f"PDF File: {uploaded_file.name} (Size: {uploaded_file.size} bytes)"
             elif uploaded_file.type in ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword"]:
-                # 对于Word文件，暂时保存文件名和大小信息
                 content = f"Word File: {uploaded_file.name} (Size: {uploaded_file.size} bytes)"
             else:
                 content = f"File: {uploaded_file.name} (Type: {uploaded_file.type})"
@@ -831,11 +854,10 @@ else:
         st.subheader(f"**{t('abstract')} *:**")
         st.markdown(t('abstract_help'))
         
-        # 模板下载和文件上传按钮 (outside form)
+        # 模板下载和文件上传按钮
         col_template, col_upload = st.columns(2)
         
         with col_template:
-            # 选择模板类型
             template_type = st.selectbox(
                 "选择模板类型 / Choose Template Type",
                 ["Default Template 默认模板", "Custom Word Template 自定义Word模板"]
@@ -848,7 +870,6 @@ else:
                 template_content = generate_custom_word_template()
                 filename = "custom_word_template.txt"
             
-            # 模板下载按钮
             st.download_button(
                 label="📄 " + t('download_template'),
                 data=template_content,
@@ -859,7 +880,6 @@ else:
             )
         
         with col_upload:
-            # 文件上传
             uploaded_file = st.file_uploader(
                 "📎 " + t('abstract_upload'),
                 type=['txt', 'pdf', 'doc', 'docx'],
@@ -876,13 +896,62 @@ else:
             uploaded_file_name = uploaded_file.name
             if uploaded_abstract_content:
                 st.success(f"{t('file_uploaded')}: {uploaded_file_name}")
-                # 显示文件内容预览（如果是文本）
                 if uploaded_file.type == "text/plain":
                     with st.expander("📄 File Preview"):
                         st.text_area("", uploaded_abstract_content, height=150, disabled=True)
             else:
                 st.error(t('file_error'))
 
+        # 住宿日期部分 - 在表单外处理
+        st.subheader(f"**{t('accommodation')}:**")
+        st.markdown(t('accommodation_help'))
+        
+        # 创建复选框网格
+        accommodation_cols = st.columns(3)
+        selected_dates = []
+        
+        for i, date_option in enumerate(t('accommodation_dates')):
+            col_index = i % 3
+            with accommodation_cols[col_index]:
+                if st.checkbox(date_option, key=f"accom_date_outside_{i}"):
+                    selected_dates.append(date_option)
+        
+        # 其他日期选项
+        other_dates_needed = st.checkbox("Other dates / 其他日期")
+        custom_dates = ""
+        if other_dates_needed:
+            custom_dates = st.text_input(
+                t('custom_dates'),
+                placeholder="e.g., October 11, October 17, etc.",
+                key="custom_dates"
+            )
+        
+        # 住宿个人信息 - 在表单外处理
+        accommodation_needed = bool(selected_dates or custom_dates.strip())
+        full_name = ""
+        passport_number = ""
+        
+        if accommodation_needed:
+            st.subheader(f"**{t('accommodation_info')} *:**")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                full_name = st.text_input(
+                    f"{t('full_name')} *",
+                    placeholder="John Smith",
+                    help="Required for accommodation booking",
+                    key="full_name_outside"
+                )
+            
+            with col2:
+                passport_number = st.text_input(
+                    f"{t('passport_number')} *",
+                    placeholder="A12345678",
+                    help="Required for accommodation booking",
+                    key="passport_outside"
+                )
+
+        # 主要表单
         with st.form("submission_form", clear_on_submit=False):
             col1, col2 = st.columns([2, 1])
             
@@ -909,60 +978,13 @@ else:
                     placeholder="+86 138xxxx"
                 )
             
-            # 摘要文本输入（如果没有上传文件）
+            # 摘要文本输入
             abstract = st.text_area(
                 f"Or enter abstract text directly:",
                 height=200,
                 placeholder="Please provide a detailed abstract of your research (200-500 words recommended)...",
                 help="You can either upload a file above or enter text here directly"
             )
-            
-            # 住宿日期部分 - 改为复选框格式
-            st.subheader(f"**{t('accommodation')}:**")
-            st.markdown(t('accommodation_help'))
-            
-            # 创建复选框网格
-            accommodation_cols = st.columns(3)
-            selected_dates = []
-            
-            for i, date_option in enumerate(t('accommodation_dates')):
-                col_index = i % 3
-                with accommodation_cols[col_index]:
-                    if st.checkbox(date_option, key=f"accom_date_{i}"):
-                        selected_dates.append(date_option)
-            
-            # 其他日期选项
-            with st.container():
-                other_dates_needed = st.checkbox("Other dates")
-                custom_dates = ""
-                if other_dates_needed:
-                    custom_dates = st.text_input(
-                        t('custom_dates'),
-                        placeholder="e.g., October 11, October 17, etc."
-                    )
-            
-            # 住宿个人信息 - 仅在选择住宿时显示
-            accommodation_needed = bool(selected_dates or custom_dates.strip())
-            full_name = ""
-            passport_number = ""
-            
-            if accommodation_needed:
-                st.subheader(f"**{t('accommodation_info')} *:**")
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    full_name = st.text_input(
-                        f"{t('full_name')} *",
-                        placeholder="John Smith",
-                        help="Required for accommodation booking"
-                    )
-                
-                with col2:
-                    passport_number = st.text_input(
-                        f"{t('passport_number')} *",
-                        placeholder="A12345678",
-                        help="Required for accommodation booking"
-                    )
             
             col1, col2, col3 = st.columns([1, 1, 1])
             
@@ -973,23 +995,18 @@ else:
                 reset = st.form_submit_button(t('reset'), use_container_width=True)
             
             if submitted:
-                # 从session state和form外的字段获取住宿信息
-                accommodation_needed = st.session_state.get('accommodation_needed', False)
-                full_name = st.session_state.get('full_name_value', "")
-                passport_number = st.session_state.get('passport_value', "")
+                # 获取表单外的数据
+                full_name = st.session_state.get('full_name_outside', '')
+                passport_number = st.session_state.get('passport_outside', '')
                 
                 # 获取选择的住宿日期
                 selected_dates = []
                 for i, date_option in enumerate(t('accommodation_dates')):
-                    if f"accom_date_outside_{i}" in st.session_state and st.session_state[f"accom_date_outside_{i}"]:
+                    if st.session_state.get(f"accom_date_outside_{i}", False):
                         selected_dates.append(date_option)
                 
                 # 获取其他日期
-                custom_dates = ""
-                if "Other dates" in st.session_state and st.session_state["Other dates"]:
-                    custom_dates = st.session_state.get("custom_dates", "")
-                elif "其他日期" in st.session_state and st.session_state["其他日期"]:
-                    custom_dates = st.session_state.get("custom_dates", "")
+                custom_dates = st.session_state.get("custom_dates", "")
                 
                 # Validate authors
                 valid_authors = [a for a in st.session_state.authors if a['name'].strip() and a['affiliation'].strip()]
@@ -1075,10 +1092,6 @@ else:
                     # Reset authors and uploaded file for next submission
                     st.session_state.authors = [{'name': '', 'affiliation': '', 'is_presenting': False, 'is_corresponding': False}]
                     st.session_state.uploaded_abstract = None
-                    # Reset accommodation selections
-                    st.session_state.accommodation_needed = False
-                    st.session_state.full_name_value = ""
-                    st.session_state.passport_value = ""
                     
                     st.success(t('success'))
                     st.balloons()
@@ -1112,10 +1125,6 @@ else:
                 # Reset form and session state
                 st.session_state.authors = [{'name': '', 'affiliation': '', 'is_presenting': False, 'is_corresponding': False}]
                 st.session_state.uploaded_abstract = None
-                # Reset accommodation selections
-                st.session_state.accommodation_needed = False
-                st.session_state.full_name_value = ""
-                st.session_state.passport_value = ""
                 st.rerun()
 
 # 页脚
@@ -1158,12 +1167,10 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     
-    /* 自定义复选框样式 */
     .stCheckbox > label {
         font-size: 14px;
     }
     
-    /* 文件上传区域样式 */
     .uploadedFile {
         border: 2px dashed #ccc;
         border-radius: 8px;
