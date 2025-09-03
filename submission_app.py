@@ -858,26 +858,15 @@ else:
         col_template, col_upload = st.columns(2)
         
         with col_template:
-            template_type = st.selectbox(
-                "选择模板类型 / Choose Template Type",
-                ["Default Template 默认模板", "Custom Word Template 自定义Word模板"]
-            )
+            # GitHub Raw URL for the Word template
+            github_template_url = "https://raw.githubusercontent.com/redbird12138/tongji-tudarmstadt-forum/main/abstract_template.doc"
             
-            if template_type == "Default Template 默认模板":
-                template_content = generate_abstract_template()
-                filename = "abstract_template.txt"
-            else:
-                template_content = generate_custom_word_template()
-                filename = "custom_word_template.txt"
+            if st.button("📄 " + t('download_template'), use_container_width=True, help="Download the Word template from GitHub"):
+                st.markdown(f"[Click here to download the template]({github_template_url})")
+                st.info("If the download doesn't start automatically, please right-click the link above and select 'Save link as...'")
             
-            st.download_button(
-                label="📄 " + t('download_template'),
-                data=template_content,
-                file_name=filename,
-                mime="text/plain",
-                use_container_width=True,
-                help="Download the abstract template to fill out offline"
-            )
+            # Alternative: Show direct link
+            st.markdown(f"**Direct link:** [Abstract Template]({github_template_url})")
         
         with col_upload:
             uploaded_file = st.file_uploader(
