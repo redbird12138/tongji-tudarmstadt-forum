@@ -1036,12 +1036,13 @@ else:
             key="dietary_requirements_outside"
         )
         
-        # 如果选择"其他"，显示文本输入框
+        # 如果选择"其他"，显示文本区域
         dietary_other_details = ""
         if dietary_requirement == 'other':
-            dietary_other_details = st.text_input(
+            dietary_other_details = st.text_area(
                 t('dietary_specify'),
-                placeholder="e.g., Gluten-free, No shellfish, etc.",
+                height=100,
+                placeholder="Please specify your dietary requirements...",
                 key="dietary_other_outside"
             )
 
