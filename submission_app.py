@@ -39,6 +39,13 @@ LANGUAGES = {
         "full_name": "Full Name",
         "passport_number": "Passport Number",
         "accommodation_info": "Personal Information for Accommodation",
+        "dietary_requirements": "Dietary Requirements",
+        "dietary_help": "Please specify any dietary restrictions for meals during the conference",
+        "dietary_vegan": "Vegan",
+        "dietary_vegetarian": "Vegetarian", 
+        "dietary_none": "None",
+        "dietary_other": "Other (please specify)",
+        "dietary_specify": "Please specify your dietary requirements:",
         "custom_dates": "Other dates (please specify):",
         "contact_email": "Contact Email",
         "contact_phone": "Contact Phone (Optional)",
@@ -72,6 +79,12 @@ LANGUAGES = {
             "October 14, 2025 (Sunday)",
             "October 15, 2025 (Monday)",
             "October 16, 2025 (Tuesday)"
+        ],
+        "dietary_options": [
+            ("vegan", "Vegan"),
+            ("vegetarian", "Vegetarian"), 
+            ("none", "None"),
+            ("other", "Other (please specify)")
         ],
         "welcome_text": """
         **Welcome to the International Forum of Graduate Students on Mechanics of Smart Materials!**
@@ -116,6 +129,13 @@ LANGUAGES = {
         "full_name": "姓名",
         "passport_number": "护照号",
         "accommodation_info": "住宿个人信息",
+        "dietary_requirements": "饮食要求",
+        "dietary_help": "请说明会议期间用餐的饮食限制",
+        "dietary_vegan": "严格素食主义",
+        "dietary_vegetarian": "素食主义",
+        "dietary_none": "无特殊要求",
+        "dietary_other": "其他（请注明）",
+        "dietary_specify": "请详细说明您的饮食要求：",
         "custom_dates": "其他日期（请注明）：",
         "contact_email": "联系邮箱",
         "contact_phone": "联系电话（可选）",
@@ -149,6 +169,12 @@ LANGUAGES = {
             "2025年10月14日（周日）",
             "2025年10月15日（周一）",
             "2025年10月16日（周二）"
+        ],
+        "dietary_options": [
+            ("vegan", "严格素食主义"),
+            ("vegetarian", "素食主义"),
+            ("none", "无特殊要求"),
+            ("other", "其他（请注明）")
         ],
         "welcome_text": """
         **欢迎参加智能材料力学研究生国际论坛！**
@@ -310,6 +336,26 @@ def get_corresponding_authors(submission):
         return "; ".join(corresponding) if corresponding else "N/A"
     return "N/A"
 
+def format_dietary_requirements(submission):
+    """格式化饮食要求显示"""
+    dietary = safe_get(submission, 'dietary_requirements')
+    if dietary == 'N/A' or not dietary:
+        return "N/A"
+    
+    dietary_other = safe_get(submission, 'dietary_other_details')
+    if dietary == 'other' and dietary_other != 'N/A':
+        return f"Other: {dietary_other}"
+    
+    # 返回饮食要求的显示文本
+    dietary_map = {
+        'vegan': 'Vegan / 严格素食主义',
+        'vegetarian': 'Vegetarian / 素食主义', 
+        'none': 'None / 无特殊要求',
+        'other': 'Other / 其他'
+    }
+    
+    return dietary_map.get(dietary, dietary)
+
 # 加载已保存的数据
 def load_data():
     try:
@@ -444,8 +490,9 @@ def admin_dashboard():
                     st.metric("🏨 Need Accommodation", accommodation_needed)
                 
                 with col4:
-                    sessions = len(set(safe_get(s, 'session') for s in submissions if safe_get(s, 'session') != 'N/A'))
-                    st.metric("📚 Active Sessions", sessions)
+                    dietary_special = len([s for s in submissions 
+                                         if safe_get(s, 'dietary_requirements') not in ['none', 'N/A', '']])
+                    st.metric("🍽️ Special Dietary Needs", dietary_special)
                 
                 # 最近提交
                 st.subheader("🕒 Recent Submissions")
@@ -460,6 +507,9 @@ def admin_dashboard():
                         with col2:
                             st.write("**Contact:**", safe_get(submission, 'contact_email'))
                             st.write("**Accommodation:**", safe_get(submission, 'accommodation_dates'))
+                            dietary = format_dietary_requirements(submission)
+                            if dietary != 'N/A':
+                                st.write("**Dietary:**", dietary)
             else:
                 st.info("No submissions yet.")
         
@@ -530,6 +580,11 @@ def admin_dashboard():
                             if safe_get(submission, 'passport_number') != 'N/A':
                                 st.write("📘", safe_get(submission, 'passport_number'))
                             
+                            # 饮食要求
+                            dietary = format_dietary_requirements(submission)
+                            if dietary != 'N/A':
+                                st.write("🍽️", dietary)
+                            
                             # 删除按钮
                             st.markdown("---")
                             delete_key = f"delete_{i}_{safe_get(submission, 'submission_id')}"
@@ -585,6 +640,27 @@ def admin_dashboard():
                     st.metric("Need Accommodation", accommodation_needed)
                 with col2:
                     st.metric("No Accommodation Needed", accommodation_not_needed)
+                
+                # 饮食要求分析
+                st.write("**🍽️ Dietary Requirements Analysis:**")
+                dietary_counts = {}
+                for submission in submissions:
+                    dietary = safe_get(submission, 'dietary_requirements')
+                    if dietary != 'N/A' and dietary:
+                        dietary_counts[dietary] = dietary_counts.get(dietary, 0) + 1
+                
+                if dietary_counts:
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Vegan", dietary_counts.get('vegan', 0))
+                    with col2:
+                        st.metric("Vegetarian", dietary_counts.get('vegetarian', 0))
+                    with col3:
+                        st.metric("No Special Requirements", dietary_counts.get('none', 0))
+                    with col4:
+                        st.metric("Other", dietary_counts.get('other', 0))
+                else:
+                    st.info("No dietary requirement data available.")
                     
             else:
                 st.info("No data available for analysis.")
@@ -612,6 +688,8 @@ def admin_dashboard():
                             'Full_Name': safe_get(s, 'full_name'),
                             'Passport_Number': safe_get(s, 'passport_number'),
                             'Accommodation_Dates': safe_get(s, 'accommodation_dates'),
+                            'Dietary_Requirements': format_dietary_requirements(s),
+                            'Dietary_Other_Details': safe_get(s, 'dietary_other_details'),
                             'Submission_Time': safe_get(s, 'submission_time'),
                             'Language': safe_get(s, 'language')
                         }
@@ -644,6 +722,7 @@ def admin_dashboard():
                                 'Full_Name': safe_get(s, 'full_name'),
                                 'Passport_Number': safe_get(s, 'passport_number'),
                                 'Accommodation': safe_get(s, 'accommodation_dates'),
+                                'Dietary_Requirements': format_dietary_requirements(s),
                                 'Submission_Time': safe_get(s, 'submission_time')
                             })
                         
@@ -765,6 +844,11 @@ else:
                                 if contact_phone != 'N/A':
                                     st.write("**Phone:**", contact_phone)
                                 st.write("**Accommodation:**", safe_get(submission, 'accommodation_dates'))
+                                
+                                # 饮食要求显示
+                                dietary = format_dietary_requirements(submission)
+                                if dietary != 'N/A':
+                                    st.write("**Dietary Requirements:**", dietary)
                             
                             with col2:
                                 st.write("**Submission ID:**", safe_get(submission, 'submission_id'))
@@ -939,6 +1023,27 @@ else:
                     help="Required for accommodation booking",
                     key="passport_outside"
                 )
+            
+            # 饮食要求部分 - 只在需要住宿时显示
+            st.write(f"**{t('dietary_requirements')}:**")
+            st.markdown(t('dietary_help'))
+            
+            dietary_options = t('dietary_options')
+            dietary_requirement = st.radio(
+                "Select your dietary requirements / 选择您的饮食要求:",
+                options=[option[0] for option in dietary_options],
+                format_func=lambda x: next(option[1] for option in dietary_options if option[0] == x),
+                key="dietary_requirements_outside"
+            )
+            
+            # 如果选择"其他"，显示文本输入框
+            dietary_other_details = ""
+            if dietary_requirement == 'other':
+                dietary_other_details = st.text_input(
+                    t('dietary_specify'),
+                    placeholder="e.g., Gluten-free, No shellfish, etc.",
+                    key="dietary_other_outside"
+                )
 
         # 主要表单
         with st.form("submission_form", clear_on_submit=False):
@@ -987,6 +1092,8 @@ else:
                 # 获取表单外的数据
                 full_name = st.session_state.get('full_name_outside', '')
                 passport_number = st.session_state.get('passport_outside', '')
+                dietary_requirement = st.session_state.get('dietary_requirements_outside', 'none')
+                dietary_other_details = st.session_state.get('dietary_other_outside', '')
                 
                 # 获取选择的住宿日期
                 selected_dates = []
@@ -1051,6 +1158,8 @@ else:
                         missing_fields.append("Full Name (required for accommodation) / 姓名（住宿必填）")
                     if not passport_number.strip():
                         missing_fields.append("Passport Number (required for accommodation) / 护照号（住宿必填）")
+                    if dietary_requirement == 'other' and not dietary_other_details.strip():
+                        missing_fields.append("Dietary requirement details (required when selecting 'Other') / 饮食要求详情（选择'其他'时必填）")
                 
                 if not missing_fields:
                     submission_id = generate_submission_id(contact_email, paper_title)
@@ -1070,6 +1179,8 @@ else:
                         'accommodation_dates': accommodation_display,
                         'full_name': full_name if accommodation_needed else 'N/A',
                         'passport_number': passport_number if accommodation_needed else 'N/A',
+                        'dietary_requirements': dietary_requirement if accommodation_needed else 'N/A',
+                        'dietary_other_details': dietary_other_details if (accommodation_needed and dietary_requirement == 'other') else 'N/A',
                         'submission_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'language': st.session_state.language
                     }
@@ -1098,6 +1209,12 @@ else:
                             if accommodation_needed:
                                 st.write("**Full Name / 姓名:**", full_name)
                                 st.write("**Passport Number / 护照号:**", passport_number)
+                                
+                                # 显示饮食要求
+                                dietary_display = format_dietary_requirements(submission)
+                                if dietary_display != 'N/A':
+                                    st.write("**Dietary Requirements / 饮食要求:**", dietary_display)
+                        
                         if uploaded_file_name:
                             st.write("**Uploaded File / 上传文件:**", uploaded_file_name)
                         st.write("**Submission Time / 提交时间:**", submission['submission_time'])
