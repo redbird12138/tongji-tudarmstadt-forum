@@ -1023,27 +1023,27 @@ else:
                     help="Required for accommodation booking",
                     key="passport_outside"
                 )
-            
-            # 饮食要求部分 - 只在需要住宿时显示
-            st.write(f"**{t('dietary_requirements')}:**")
-            st.markdown(t('dietary_help'))
-            
-            dietary_options = t('dietary_options')
-            dietary_requirement = st.radio(
-                "Select your dietary requirements / 选择您的饮食要求:",
-                options=[option[0] for option in dietary_options],
-                format_func=lambda x: next(option[1] for option in dietary_options if option[0] == x),
-                key="dietary_requirements_outside"
+
+        # 饮食要求部分 - 对所有参会者显示
+        st.subheader(f"**{t('dietary_requirements')}:**")
+        st.markdown(t('dietary_help'))
+        
+        dietary_options = t('dietary_options')
+        dietary_requirement = st.radio(
+            "Select your dietary requirements / 选择您的饮食要求:",
+            options=[option[0] for option in dietary_options],
+            format_func=lambda x: next(option[1] for option in dietary_options if option[0] == x),
+            key="dietary_requirements_outside"
+        )
+        
+        # 如果选择"其他"，显示文本输入框
+        dietary_other_details = ""
+        if dietary_requirement == 'other':
+            dietary_other_details = st.text_input(
+                t('dietary_specify'),
+                placeholder="e.g., Gluten-free, No shellfish, etc.",
+                key="dietary_other_outside"
             )
-            
-            # 如果选择"其他"，显示文本输入框
-            dietary_other_details = ""
-            if dietary_requirement == 'other':
-                dietary_other_details = st.text_input(
-                    t('dietary_specify'),
-                    placeholder="e.g., Gluten-free, No shellfish, etc.",
-                    key="dietary_other_outside"
-                )
 
         # 主要表单
         with st.form("submission_form", clear_on_submit=False):
@@ -1158,8 +1158,10 @@ else:
                         missing_fields.append("Full Name (required for accommodation) / 姓名（住宿必填）")
                     if not passport_number.strip():
                         missing_fields.append("Passport Number (required for accommodation) / 护照号（住宿必填）")
-                    if dietary_requirement == 'other' and not dietary_other_details.strip():
-                        missing_fields.append("Dietary requirement details (required when selecting 'Other') / 饮食要求详情（选择'其他'时必填）")
+                
+                # 饮食要求验证（对所有参会者）
+                if dietary_requirement == 'other' and not dietary_other_details.strip():
+                    missing_fields.append("Dietary requirement details (required when selecting 'Other') / 饮食要求详情（选择'其他'时必填）")
                 
                 if not missing_fields:
                     submission_id = generate_submission_id(contact_email, paper_title)
@@ -1179,8 +1181,8 @@ else:
                         'accommodation_dates': accommodation_display,
                         'full_name': full_name if accommodation_needed else 'N/A',
                         'passport_number': passport_number if accommodation_needed else 'N/A',
-                        'dietary_requirements': dietary_requirement if accommodation_needed else 'N/A',
-                        'dietary_other_details': dietary_other_details if (accommodation_needed and dietary_requirement == 'other') else 'N/A',
+                        'dietary_requirements': dietary_requirement,
+                        'dietary_other_details': dietary_other_details if dietary_requirement == 'other' else 'N/A',
                         'submission_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'language': st.session_state.language
                     }
