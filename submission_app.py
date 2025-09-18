@@ -74,11 +74,11 @@ LANGUAGES = {
             "Machine Learning in Computational Mechanics and Materials Sciences"
         ],
         "accommodation_dates": [
-            "October 12, 2025 (Friday)",
-            "October 13, 2025 (Saturday)", 
-            "October 14, 2025 (Sunday)",
-            "October 15, 2025 (Monday)",
-            "October 16, 2025 (Tuesday)"
+            "October 12, 2025 (Sunday)",
+            "October 13, 2025 (Monday)", 
+            "October 14, 2025 (Tuesday)",
+            "October 15, 2025 (Wednesday)",
+            "October 16, 2025 (Thursday)"
         ],
         "dietary_options": [
             ("vegan", "Vegan"),
@@ -164,11 +164,11 @@ LANGUAGES = {
             "计算力学与材料科学中的机器学习"
         ],
         "accommodation_dates": [
-            "2025年10月12日（周五）",
-            "2025年10月13日（周六）",
-            "2025年10月14日（周日）",
-            "2025年10月15日（周一）",
-            "2025年10月16日（周二）"
+            "2025年10月12日（周日）",
+            "2025年10月13日（周一）",
+            "2025年10月14日（周二）",
+            "2025年10月15日（周三）",
+            "2025年10月16日（周四）"
         ],
         "dietary_options": [
             ("vegan", "严格素食主义"),
