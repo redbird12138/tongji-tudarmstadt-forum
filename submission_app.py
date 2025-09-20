@@ -232,13 +232,73 @@ if 'cache_timestamp' not in st.session_state:
 DATA_FILE = os.path.join(os.getcwd(), 'submissions.json')
 
 # GitHub API函数
-def upload_to_github(submission_data, submission_id):
+def upload_file_to_github(file_content, file_name, submission_id, is_binary=False):
+    """上传单个文件到GitHub"""
+    if not GITHUB_TOKEN or not GITHUB_REPO:
+        return False, "GitHub configuration missing"
+    
+    try:
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        file_path = f"{GITHUB_DATA_PATH}/files/{submission_id}_{timestamp}_{file_name}"
+        
+        # 编码文件内容
+        if is_binary:
+            content_encoded = base64.b64encode(file_content).decode('utf-8')
+        else:
+            content_encoded = base64.b64encode(file_content.encode('utf-8')).decode('utf-8')
+        
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{file_path}"
+        
+        headers = {
+            'Authorization': f'token {GITHUB_TOKEN}',
+            'Accept': 'application/vnd.github.v3+json'
+        }
+        
+        data = {
+            'message': f'Add file {file_name} for submission {submission_id}',
+            'content': content_encoded,
+            'branch': 'main'
+        }
+        
+        response = requests.put(url, json=data, headers=headers, timeout=30)
+        
+        if response.status_code == 201:
+            return True, file_path
+        else:
+            return False, f"File upload error: {response.status_code}"
+            
+    except Exception as e:
+        return False, f"File upload error: {str(e)}"
+
+def upload_to_github(submission_data, submission_id, uploaded_file=None):
     """上传投稿数据到GitHub仓库"""
     if not GITHUB_TOKEN or not GITHUB_REPO:
         return False, "GitHub configuration missing"
     
     try:
-        # 生成文件名
+        # 首先上传附件文件（如果有的话）
+        file_github_path = None
+        if uploaded_file is not None:
+            try:
+                # 读取文件内容
+                if uploaded_file.type == "text/plain":
+                    file_content = str(uploaded_file.read(), "utf-8")
+                    success, result = upload_file_to_github(file_content, uploaded_file.name, submission_id, is_binary=False)
+                else:
+                    # 对于二进制文件（PDF, Word等）
+                    file_content = uploaded_file.read()
+                    success, result = upload_file_to_github(file_content, uploaded_file.name, submission_id, is_binary=True)
+                
+                if success:
+                    file_github_path = result
+                    # 更新submission_data中的文件信息
+                    submission_data['file_github_path'] = file_github_path
+                else:
+                    submission_data['file_upload_error'] = result
+            except Exception as e:
+                submission_data['file_upload_error'] = f"File processing error: {str(e)}"
+        
+        # 生成CSV文件名
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f"submission_{timestamp}_{submission_id}.csv"
         file_path = f"{GITHUB_DATA_PATH}/{filename}"
@@ -289,6 +349,8 @@ def create_csv_from_submission(submission):
             'Session': submission.get('session', ''),
             'Abstract': submission.get('abstract', ''),
             'Abstract_File': submission.get('abstract_file_name', ''),
+            'File_GitHub_Path': submission.get('file_github_path', ''),
+            'File_Upload_Error': submission.get('file_upload_error', ''),
             'Contact_Email': submission.get('contact_email', ''),
             'Contact_Phone': submission.get('contact_phone', ''),
             'Full_Name': submission.get('full_name', ''),
@@ -557,7 +619,7 @@ def save_data(submissions):
     except Exception as e:
         pass  # 静默处理本地保存错误
 
-def save_submission(submission):
+def save_submission(submission, uploaded_file=None):
     """保存单个投稿到本地和GitHub"""
     success_local = False
     success_github = False
@@ -577,9 +639,9 @@ def save_submission(submission):
     except Exception as e:
         pass
     
-    # 上传到GitHub
+    # 上传到GitHub（包括文件）
     if GITHUB_TOKEN and GITHUB_REPO:
-        success_github, github_message = upload_to_github(submission, submission['submission_id'])
+        success_github, github_message = upload_to_github(submission, submission['submission_id'], uploaded_file)
     
     # 清除缓存以强制重新加载
     st.session_state.github_submissions_cache = None
@@ -1421,7 +1483,7 @@ else:
                     }
                     
                     # 保存到本地和GitHub
-                    success_local, success_github = save_submission(submission)
+                    success_local, success_github = save_submission(submission, uploaded_file)
                     
                     # Reset authors and uploaded file for next submission
                     st.session_state.authors = [{'name': '', 'affiliation': '', 'is_presenting': False, 'is_corresponding': False}]
