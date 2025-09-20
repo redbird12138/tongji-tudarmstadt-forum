@@ -5,6 +5,9 @@ import json
 import os
 import hashlib
 import io
+import requests
+import base64
+import time
 
 # 页面配置
 st.set_page_config(
@@ -15,6 +18,11 @@ st.set_page_config(
 
 # 管理员密码
 ADMIN_PASSWORD = "tongji2025"
+
+# GitHub配置 - 需要在Streamlit Secrets中设置
+GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", "")
+GITHUB_REPO = st.secrets.get("GITHUB_REPO", "redbird12138/tongji-tudarmstadt-forum")  # 格式: owner/repo
+GITHUB_DATA_PATH = "data/submissions"  # GitHub仓库中的数据目录
 
 # 语言配置
 LANGUAGES = {
@@ -67,6 +75,8 @@ LANGUAGES = {
         "invalid_password": "❌ Invalid password",
         "file_uploaded": "✅ File uploaded successfully",
         "file_error": "❌ Error uploading file",
+        "github_success": "✅ Data saved to GitHub successfully",
+        "github_error": "⚠️ GitHub backup failed, but submission recorded locally",
         "sessions": [
             "Multifunctional Materials and Smart Systems (Energy Materials, Ferroelectric Materials, Metamaterials, Phononic Crystals)",
             "Advanced Manufacturing & Processing Techniques (Additive Manufacturing, Composite Manufacturing Methods)",
@@ -157,6 +167,8 @@ LANGUAGES = {
         "invalid_password": "❌ 密码错误",
         "file_uploaded": "✅ 文件上传成功",
         "file_error": "❌ 文件上传错误",
+        "github_success": "✅ 数据已成功保存到GitHub",
+        "github_error": "⚠️ GitHub备份失败，但投稿已在本地记录",
         "sessions": [
             "多功能材料与智能系统（能源材料、铁电材料、超材料、声子晶体）",
             "先进制造与加工技术（增材制造、复合材料制造方法）",
@@ -211,9 +223,168 @@ if 'authors' not in st.session_state:
     st.session_state.authors = [{'name': '', 'affiliation': '', 'is_presenting': False, 'is_corresponding': False}]
 if 'uploaded_abstract' not in st.session_state:
     st.session_state.uploaded_abstract = None
+if 'github_submissions_cache' not in st.session_state:
+    st.session_state.github_submissions_cache = None
+if 'cache_timestamp' not in st.session_state:
+    st.session_state.cache_timestamp = 0
 
 # 数据文件路径
 DATA_FILE = os.path.join(os.getcwd(), 'submissions.json')
+
+# GitHub API函数
+def upload_to_github(submission_data, submission_id):
+    """上传投稿数据到GitHub仓库"""
+    if not GITHUB_TOKEN or not GITHUB_REPO:
+        return False, "GitHub configuration missing"
+    
+    try:
+        # 生成文件名
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"submission_{timestamp}_{submission_id}.csv"
+        file_path = f"{GITHUB_DATA_PATH}/{filename}"
+        
+        # 创建CSV内容
+        csv_data = create_csv_from_submission(submission_data)
+        
+        # 编码为base64
+        content_encoded = base64.b64encode(csv_data.encode('utf-8')).decode('utf-8')
+        
+        # GitHub API URL
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{file_path}"
+        
+        # 请求头
+        headers = {
+            'Authorization': f'token {GITHUB_TOKEN}',
+            'Accept': 'application/vnd.github.v3+json'
+        }
+        
+        # 请求数据
+        data = {
+            'message': f'Add submission {submission_id}',
+            'content': content_encoded,
+            'branch': 'main'  # 或者 'master'，根据你的默认分支
+        }
+        
+        # 发送请求
+        response = requests.put(url, json=data, headers=headers, timeout=30)
+        
+        if response.status_code == 201:
+            return True, "Successfully uploaded to GitHub"
+        else:
+            return False, f"GitHub API error: {response.status_code}"
+            
+    except Exception as e:
+        return False, f"Upload error: {str(e)}"
+
+def create_csv_from_submission(submission):
+    """从投稿数据创建CSV内容"""
+    try:
+        # 创建DataFrame
+        df = pd.DataFrame([{
+            'Submission_ID': submission.get('submission_id', ''),
+            'Paper_Title': submission.get('paper_title', ''),
+            'Authors': submission.get('authors_display', ''),
+            'Presenting_Authors': '; '.join(submission.get('presenting_authors', [])),
+            'Corresponding_Authors': '; '.join(submission.get('corresponding_authors', [])),
+            'Session': submission.get('session', ''),
+            'Abstract': submission.get('abstract', ''),
+            'Abstract_File': submission.get('abstract_file_name', ''),
+            'Contact_Email': submission.get('contact_email', ''),
+            'Contact_Phone': submission.get('contact_phone', ''),
+            'Full_Name': submission.get('full_name', ''),
+            'Passport_Number': submission.get('passport_number', ''),
+            'Accommodation_Dates': submission.get('accommodation_dates', ''),
+            'Dietary_Requirements': submission.get('dietary_requirements', ''),
+            'Dietary_Other_Details': submission.get('dietary_other_details', ''),
+            'Submission_Time': submission.get('submission_time', ''),
+            'Language': submission.get('language', '')
+        }])
+        
+        return df.to_csv(index=False, encoding='utf-8')
+        
+    except Exception as e:
+        return f"Error creating CSV: {str(e)}"
+
+def load_submissions_from_github():
+    """从GitHub加载所有投稿数据"""
+    if not GITHUB_TOKEN or not GITHUB_REPO:
+        return []
+    
+    try:
+        # 检查缓存是否有效（30分钟）
+        current_time = time.time()
+        if (st.session_state.github_submissions_cache is not None and 
+            current_time - st.session_state.cache_timestamp < 1800):
+            return st.session_state.github_submissions_cache
+        
+        # GitHub API URL
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_DATA_PATH}"
+        
+        headers = {
+            'Authorization': f'token {GITHUB_TOKEN}',
+            'Accept': 'application/vnd.github.v3+json'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=30)
+        
+        if response.status_code != 200:
+            return []
+        
+        files = response.json()
+        all_submissions = []
+        
+        # 只处理CSV文件
+        csv_files = [f for f in files if f['name'].endswith('.csv') and f['name'].startswith('submission_')]
+        
+        for file_info in csv_files:
+            try:
+                # 获取文件内容
+                file_response = requests.get(file_info['download_url'], timeout=30)
+                if file_response.status_code == 200:
+                    # 解析CSV
+                    df = pd.read_csv(io.StringIO(file_response.text))
+                    if not df.empty:
+                        # 转换为提交格式
+                        for _, row in df.iterrows():
+                            submission = convert_csv_row_to_submission(row)
+                            if submission:
+                                all_submissions.append(submission)
+            except Exception as e:
+                continue  # 跳过有问题的文件
+        
+        # 更新缓存
+        st.session_state.github_submissions_cache = all_submissions
+        st.session_state.cache_timestamp = current_time
+        
+        return all_submissions
+        
+    except Exception as e:
+        return []
+
+def convert_csv_row_to_submission(row):
+    """将CSV行转换为投稿格式"""
+    try:
+        return {
+            'submission_id': str(row.get('Submission_ID', '')),
+            'paper_title': str(row.get('Paper_Title', '')),
+            'authors_display': str(row.get('Authors', '')),
+            'presenting_authors': str(row.get('Presenting_Authors', '')).split('; ') if row.get('Presenting_Authors') else [],
+            'corresponding_authors': str(row.get('Corresponding_Authors', '')).split('; ') if row.get('Corresponding_Authors') else [],
+            'session': str(row.get('Session', '')),
+            'abstract': str(row.get('Abstract', '')),
+            'abstract_file_name': str(row.get('Abstract_File', '')),
+            'contact_email': str(row.get('Contact_Email', '')),
+            'contact_phone': str(row.get('Contact_Phone', '')),
+            'full_name': str(row.get('Full_Name', '')),
+            'passport_number': str(row.get('Passport_Number', '')),
+            'accommodation_dates': str(row.get('Accommodation_Dates', '')),
+            'dietary_requirements': str(row.get('Dietary_Requirements', '')),
+            'dietary_other_details': str(row.get('Dietary_Other_Details', '')),
+            'submission_time': str(row.get('Submission_Time', '')),
+            'language': str(row.get('Language', ''))
+        }
+    except Exception as e:
+        return None
 
 # 生成模板文件内容
 def generate_abstract_template():
@@ -286,8 +457,8 @@ def generate_custom_word_template():
 def safe_get(submission, *keys):
     """安全获取提交数据中的字段值，支持多个备用键"""
     for key in keys:
-        if key in submission and submission[key]:
-            return submission[key]
+        if key in submission and submission[key] and str(submission[key]).strip() != '':
+            return str(submission[key])
     return "N/A"
 
 # 格式化作者信息的辅助函数
@@ -356,8 +527,16 @@ def format_dietary_requirements(submission):
     
     return dietary_map.get(dietary, dietary)
 
-# 加载已保存的数据
+# 修改的数据加载函数
 def load_data():
+    """加载数据，优先从GitHub加载，本地作为备份"""
+    github_data = load_submissions_from_github()
+    
+    # 如果GitHub有数据，使用GitHub数据
+    if github_data:
+        return github_data
+    
+    # 否则使用本地数据作为备份
     try:
         if os.path.exists(DATA_FILE):
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
@@ -366,16 +545,47 @@ def load_data():
         else:
             return []
     except Exception as e:
-        st.error(f"Error loading data: {e}")
         return []
 
-# 保存数据
+# 保存数据（本地备份 + GitHub上传）
 def save_data(submissions):
+    """保存数据到本地和GitHub"""
+    # 本地保存作为备份
     try:
         with open(DATA_FILE, 'w', encoding='utf-8') as f:
             json.dump(submissions, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        st.error(f"Error saving data: {e}")
+        pass  # 静默处理本地保存错误
+
+def save_submission(submission):
+    """保存单个投稿到本地和GitHub"""
+    success_local = False
+    success_github = False
+    
+    # 保存到本地
+    try:
+        submissions = []
+        if os.path.exists(DATA_FILE):
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                submissions = json.load(f)
+        
+        submissions.append(submission)
+        
+        with open(DATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump(submissions, f, ensure_ascii=False, indent=2)
+        success_local = True
+    except Exception as e:
+        pass
+    
+    # 上传到GitHub
+    if GITHUB_TOKEN and GITHUB_REPO:
+        success_github, github_message = upload_to_github(submission, submission['submission_id'])
+    
+    # 清除缓存以强制重新加载
+    st.session_state.github_submissions_cache = None
+    st.session_state.cache_timestamp = 0
+    
+    return success_local, success_github
 
 # 生成提交ID
 def generate_submission_id(email, title):
@@ -439,6 +649,12 @@ def admin_dashboard():
         st.header("🛠️ Admin Dashboard")
         st.markdown("**Conference Management System**")
         
+        # GitHub状态指示器
+        if GITHUB_TOKEN and GITHUB_REPO:
+            st.success("🔗 GitHub Integration Active")
+        else:
+            st.warning("⚠️ GitHub Integration Not Configured")
+        
         # 顶部导航
         col1, col2, col3, col4, col5 = st.columns(5)
         
@@ -493,6 +709,12 @@ def admin_dashboard():
                     dietary_special = len([s for s in submissions 
                                          if safe_get(s, 'dietary_requirements') not in ['none', 'N/A', '']])
                     st.metric("🍽️ Special Dietary Needs", dietary_special)
+                
+                # 刷新GitHub数据按钮
+                if st.button("🔄 Refresh GitHub Data"):
+                    st.session_state.github_submissions_cache = None
+                    st.session_state.cache_timestamp = 0
+                    st.rerun()
                 
                 # 最近提交
                 st.subheader("🕒 Recent Submissions")
@@ -584,29 +806,6 @@ def admin_dashboard():
                             dietary = format_dietary_requirements(submission)
                             if dietary != 'N/A':
                                 st.write("🍽️", dietary)
-                            
-                            # 删除按钮
-                            st.markdown("---")
-                            delete_key = f"delete_{i}_{safe_get(submission, 'submission_id')}"
-                            confirm_key = f"confirm_delete_{i}_{safe_get(submission, 'submission_id')}"
-                            
-                            if st.button(f"🗑️ Delete", key=delete_key, type="secondary"):
-                                if st.session_state.get(confirm_key, False):
-                                    # 执行删除
-                                    all_submissions = load_data()
-                                    submission_id = safe_get(submission, 'submission_id')
-                                    updated_submissions = [s for s in all_submissions if safe_get(s, 'submission_id') != submission_id]
-                                    save_data(updated_submissions)
-                                    st.success("Submission deleted successfully!")
-                                    # 清除确认状态
-                                    if confirm_key in st.session_state:
-                                        del st.session_state[confirm_key]
-                                    st.rerun()
-                                else:
-                                    # 第一次点击，要求确认
-                                    st.session_state[confirm_key] = True
-                                    st.warning("Click again to confirm deletion. This action cannot be undone!")
-                                    st.rerun()
             else:
                 st.info("No submissions available.")
         
@@ -626,6 +825,10 @@ def admin_dashboard():
                 if session_counts:
                     session_df = pd.DataFrame(list(session_counts.items()), columns=['Session', 'Count'])
                     st.bar_chart(session_df.set_index('Session'))
+                    
+                    # 显示具体数字
+                    for session, count in session_counts.items():
+                        st.write(f"- **{session}**: {count} submissions")
                 else:
                     st.info("No session data available for visualization.")
                 
@@ -661,6 +864,28 @@ def admin_dashboard():
                         st.metric("Other", dietary_counts.get('other', 0))
                 else:
                     st.info("No dietary requirement data available.")
+                    
+                # 时间分析
+                st.write("**📅 Submission Timeline:**")
+                if submissions:
+                    submission_dates = []
+                    for submission in submissions:
+                        if safe_get(submission, 'submission_time') != 'N/A':
+                            try:
+                                date_str = safe_get(submission, 'submission_time').split(' ')[0]  # 只取日期部分
+                                submission_dates.append(date_str)
+                            except:
+                                continue
+                    
+                    if submission_dates:
+                        date_counts = {}
+                        for date in submission_dates:
+                            date_counts[date] = date_counts.get(date, 0) + 1
+                        
+                        timeline_df = pd.DataFrame(list(date_counts.items()), columns=['Date', 'Submissions'])
+                        timeline_df['Date'] = pd.to_datetime(timeline_df['Date'])
+                        timeline_df = timeline_df.sort_values('Date')
+                        st.line_chart(timeline_df.set_index('Date'))
                     
             else:
                 st.info("No data available for analysis.")
@@ -755,6 +980,13 @@ def admin_dashboard():
 # 侧边栏
 with st.sidebar:
     st.header("⚙️ Settings")
+    
+    # GitHub状态指示器
+    if GITHUB_TOKEN and GITHUB_REPO:
+        st.success("🔗 GitHub Connected")
+    else:
+        st.error("❌ GitHub Not Configured")
+        st.caption("Set GITHUB_TOKEN and GITHUB_REPO in Streamlit secrets")
     
     # 语言切换
     new_language = st.selectbox(
@@ -1188,14 +1420,19 @@ else:
                         'language': st.session_state.language
                     }
                     
-                    submissions = load_data()
-                    submissions.append(submission)
-                    save_data(submissions)
+                    # 保存到本地和GitHub
+                    success_local, success_github = save_submission(submission)
                     
                     # Reset authors and uploaded file for next submission
                     st.session_state.authors = [{'name': '', 'affiliation': '', 'is_presenting': False, 'is_corresponding': False}]
                     st.session_state.uploaded_abstract = None
                     
+                    # 显示保存状态
+                    if success_github:
+                        st.success(t('github_success'))
+                    else:
+                        st.warning(t('github_error'))
+                        
                     st.success(t('success'))
                     st.balloons()
                     
